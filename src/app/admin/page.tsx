@@ -15,8 +15,7 @@ export default function Admin() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
   if (!session) { router.push('/auth/login'); return }
   const user = session.user
-  setUser(user)
-
+  
       // Admin kontrolü
       const { data: profile } = await supabase
         .from('profiles').select('is_admin').eq('id', user.id).single()
