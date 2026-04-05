@@ -7,24 +7,24 @@ export default function Profile() {
   const supabase = createClient()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
   const [fullName, setFullName] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-  if (!session) { router.push('/auth/login'); return }
-  const user = session.user
-  setUser(user)
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (data) { setProfile(data); setFullName(data.full_name || '') }
+      if (!session) { router.push('/auth/login'); return }
+      setUser(session.user)
+      setFullName(session.user.user_metadata?.full_name || '')
+      setLoading(false)
     })
   }, [])
 
   async function saveProfile() {
+    if (!user) return
     setSaving(true)
-    await supabase.from('profiles').update({ full_name: fullName }).eq('id', user.id)
+    await supabase.auth.updateUser({ data: { full_name: fullName } })
     setMessage('Profil güncellendi ✓')
     setSaving(false)
     setTimeout(() => setMessage(''), 3000)
@@ -34,6 +34,12 @@ export default function Profile() {
     await supabase.auth.signOut()
     router.push('/')
   }
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#0a0b0e] flex items-center justify-center">
+      <p className="text-[#8892aa] font-mono animate-pulse">Yükleniyor…</p>
+    </div>
+  )
 
   if (!user) return null
 
@@ -49,7 +55,6 @@ export default function Profile() {
         </div>
 
         <div className="bg-[#111318] border border-[#1e2330] rounded-2xl p-8">
-          {/* Avatar */}
           <div className="flex items-center gap-4 mb-8 pb-8 border-b border-[#1e2330]">
             <div className="w-16 h-16 rounded-2xl bg-[#00e5a0] flex items-center justify-center text-2xl font-black text-black">
               {(fullName || user.email || '?')[0].toUpperCase()}
