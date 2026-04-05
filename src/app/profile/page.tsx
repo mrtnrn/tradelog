@@ -13,9 +13,10 @@ export default function Profile() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.push('/auth/login'); return }
-      setUser(user)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { router.push('/auth/login'); return }
+  const user = session.user
+  setUser(user)
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (data) { setProfile(data); setFullName(data.full_name || '') }
     })

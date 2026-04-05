@@ -143,13 +143,13 @@ export default function Dashboard() {
 
   // ── AUTH & LOAD ──────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { router.push('/auth/login'); return }
-      setUser(user)
-      loadData(user.id)
-      fetchUSDTRY()
-    })
-  }, [])
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session) { router.push('/auth/login'); return }
+    setUser(session.user)
+    loadData(session.user.id)
+    fetchUSDTRY()
+  })
+}, [])
 
   async function fetchUSDTRY() {
     try {

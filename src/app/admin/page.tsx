@@ -12,8 +12,10 @@ export default function Admin() {
   const [unauthorized, setUnauthorized] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.push('/auth/login'); return }
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { router.push('/auth/login'); return }
+  const user = session.user
+  setUser(user)
 
       // Admin kontrolü
       const { data: profile } = await supabase

@@ -13,13 +13,18 @@ export default function Login() {
   const supabase = createClient()
 
   async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false) }
-    else router.push('/dashboard')
+  e.preventDefault()
+  setLoading(true)
+  setError('')
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) { 
+    setError(error.message)
+    setLoading(false) 
+  } else {
+    router.refresh()
+    router.push('/dashboard')
   }
+}
 
   async function handleGoogle() {
     await supabase.auth.signInWithOAuth({
