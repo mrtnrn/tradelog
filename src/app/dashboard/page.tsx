@@ -44,7 +44,15 @@ const BC: Record<CS, string> = {
   'sell-long': 'badge-sell-long', 'sell-short': 'badge-sell-short'
 }
 
-const FINNHUB_KEY = 'd6tga41r01qhkb443g1gd6tga41r01qhkb443g20'
+async function fetchFinnhub(ticker: string): Promise<PriceData | null> {
+  try {
+    const res = await fetch(`/api/price?ticker=${encodeURIComponent(ticker)}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data.error) return null
+    return data as PriceData
+  } catch { return null }
+}
 const CACHE_TTL = 10 * 60 * 1000
 const priceCache: Record<string, { ts: number; data: PriceData }> = {}
 
