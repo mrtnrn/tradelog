@@ -140,12 +140,12 @@ export default function Dashboard() {
 }, [])
 
   async function fetchUSDTRY() {
-    try {
-      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=USDTRY&token=${FINNHUB_KEY}`)
-      const q = await res.json()
-      if (q.c) setUsdTryRate(q.c)
-    } catch {}
-  }
+  try {
+    const res = await fetch('/api/price?ticker=USDTRY')
+    const q = await res.json()
+    if (q.current) setUsdTryRate(q.current)
+  } catch {}
+}
 
   async function loadData(userId: string) {
     setLoading(true)
