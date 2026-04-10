@@ -84,26 +84,6 @@ function compositeStatus(status: Status, dir: Direction): CS {
   return `${status}-${dir}` as CS
 }
 
-async function fetchFinnhub(ticker: string): Promise<PriceData | null> {
-  if (!FINNHUB_KEY) return null
-  try {
-    const sym = ticker.endsWith('.IS') ? 'BORSA:' + ticker.replace('.IS', '') : ticker
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 3500)
-    const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`, { signal: ctrl.signal })
-    clearTimeout(timer)
-    if (!res.ok) return null
-    const q = await res.json()
-    if (!q.c || q.c === 0) return null
-    const currency = sym.startsWith('BORSA:') ? 'TRY' : 'USD'
-    return {
-      current: q.c, close: q.pc, prevClose: q.pc, currency,
-      change: q.pc ? (q.c - q.pc) / q.pc * 100 : null,
-      resolvedSymbol: ticker
-    }
-  } catch { return null }
-}
-
 async function fetchPrice(ticker: string): Promise<PriceData | null> {
   if (priceCache[ticker] && Date.now() - priceCache[ticker].ts < CACHE_TTL) return priceCache[ticker].data
   const pd = await fetchFinnhub(ticker)
