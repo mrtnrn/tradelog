@@ -9,8 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const sym = ticker.endsWith('.IS') ? 'BORSA:' + ticker.replace('.IS', '') : ticker
     const res = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`,
-      { next: { revalidate: 60 } }
+      `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`
     )
     if (!res.ok) return NextResponse.json({ error: 'fetch failed' }, { status: 500 })
     const q = await res.json()
