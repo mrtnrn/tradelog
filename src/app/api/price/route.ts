@@ -2,11 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const FINNHUB_KEY = process.env.FINNHUB_KEY!
 
-async function tryFetch(sym: string) {
-  const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`)
+async function fetchFinnhub(sym: string) {
+  const res = await fetch(
+    `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`
+  )
   const q = await res.json()
-  if (q.c && q.c !== 0) return { q, sym }
-  return null
+  if (!q.c || q.c === 0) return null
+  const isBIST = sym.startsWith('BORSA:')
+  const currency = isBIST ? 'TRY' : 'USD'
+  return { current: q.c, close: q.pc, prevClose: q.pc, currency,
+    change: q.pc ? (q.c - q.pc) / q.pc * 100 : null, resolvedSymbol: sym }
+}
+
+async function fetchYahoo(symbol: string) {
+  const res = await fetch(
+    `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=2d`,
+    { headers: { 'User-Agent': 'Mozilla/5.0' } }
+  )
+  if (!res.ok) return null
+  const data = await res.json()
+  const result = data?.chart?.result?.[0]
+  if (!result) return null
+  const meta = result.meta
+  const current = meta.regularMarketPrice || meta.previousClose
+  const prevClose = meta.previousClose || meta.chartPreviousClose
+  if (!current) return null
+  const currency = symbol.endsWith('.IS') ? 'TRY' : (meta.currency || 'USD')
+  return { current, close: prevClose, prevClose, currency,
+    change: prevClose ? (current - prevClose) / prevClose * 100 : null,
+    resolvedSymbol: symbol }
 }
 
 export async function GET(request: NextRequest) {
@@ -14,35 +38,28 @@ export async function GET(request: NextRequest) {
   if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 })
 
   try {
-    const clean = ticker.replace('.IS', '').toUpperCase()
-    
-    // BIST için farklı formatları dene
-    const formats = [
-      clean,           // THYAO
-      `BORSA:${clean}`, // BORSA:THYAO  
-      `${clean}.IS`,   // THYAO.IS
-      `IST:${clean}`,  // IST:THYAO
-    ]
+    const upper = ticker.toUpperCase()
+    const clean = upper.replace('.IS', '')
 
-    let result = null
-    for (const fmt of formats) {
-      result = await tryFetch(fmt)
-      if (result) break
+    // 1. Finnhub US hissesi (direkt)
+    if (!upper.includes('.')) {
+      const pd = await fetchFinnhub(upper)
+      if (pd) return NextResponse.json(pd)
     }
 
-    if (!result) return NextResponse.json({ error: 'no data' }, { status: 404 })
+    // 2. Finnhub BIST (BORSA: formatı)
+    const pdBorsa = await fetchFinnhub(`BORSA:${clean}`)
+    if (pdBorsa) return NextResponse.json(pdBorsa)
 
-    const { q, sym } = result
-    const isBIST = ticker.includes('.IS') || ticker.toUpperCase() === clean
-    // Eğer US hissesi değilse TRY kabul et
-    const isUS = ['AAPL','TSLA','MSFT','GOOGL','AMZN','META','NVDA'].includes(clean)
-    const currency = (!isUS && isBIST) ? 'TRY' : (q.c > 100 && !ticker.includes('.IS') ? 'USD' : 'TRY')
+    // 3. Yahoo Finance fallback (sunucudan CORS yok)
+    const pdYahoo = await fetchYahoo(clean + '.IS')
+    if (pdYahoo) return NextResponse.json(pdYahoo)
 
-    return NextResponse.json({
-      current: q.c, close: q.pc, prevClose: q.pc, currency,
-      change: q.pc ? (q.c - q.pc) / q.pc * 100 : null,
-      resolvedSymbol: sym
-    })
+    // 4. Yahoo US
+    const pdYahooUS = await fetchYahoo(upper)
+    if (pdYahooUS) return NextResponse.json(pdYahooUS)
+
+    return NextResponse.json({ error: 'no data' }, { status: 404 })
   } catch(e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
