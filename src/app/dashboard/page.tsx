@@ -193,54 +193,56 @@ export default function Dashboard() {
   const entries = allEntries[key] || []
 
   // ── ADD ENTRY ─────────────────────────────────────────
-  async function addEntry() {
-    if (!ticker.trim()) return
-    if (!comment.trim()) return
-    if (!user) return
+async function addEntry() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { router.push('/auth/login'); return }
+  const currentUser = session.user
 
-    const cs = compositeStatus(status, direction)
-    const entry: Entry = {
-      id: Date.now(),
-      ticker: ticker.toUpperCase(),
-      comment,
-      status, direction, cs,
-      lot: lot ? parseFloat(lot) : null,
-      buyPrice: buyPrice ? parseFloat(buyPrice) : null,
-      sellPrice: sellPrice ? parseFloat(sellPrice) : null,
-      time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-      prices: null
-    }
+  if (!ticker.trim()) return
+  if (!comment.trim()) return
 
-    const updated = { ...allEntries }
-    if (!updated[key]) updated[key] = []
-    updated[key] = [...updated[key], entry]
-    setAllEntries(updated)
-
-    // Reset form
-    setTicker(''); setComment(''); setLot(''); setBuyPrice(''); setSellPrice('')
-    setLivePriceBadge(''); setAutoBuyPrice(null)
-
-    // Supabase
-    setSyncing(true)
-    await supabase.from('trade_entries').insert({
-      id: entry.id, date: key, ticker: entry.ticker, comment: entry.comment,
-      status: entry.status, direction: entry.direction, cs: entry.cs,
-      lot: entry.lot, buy_price: entry.buyPrice, sell_price: entry.sellPrice,
-      time: entry.time, prices: null, user_id: user.id
-    })
-    setSyncing(false)
-
-    // Fiyat çek
-    const pd = await fetchPrice(entry.ticker)
-    if (pd) {
-      const updated2 = { ...allEntries }
-      if (!updated2[key]) updated2[key] = []
-      updated2[key] = updated2[key].map(e => e.id === entry.id ? { ...e, prices: pd } : e)
-      setAllEntries(updated2)
-      await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
-    }
+  const cs = compositeStatus(status, direction)
+  const entry: Entry = {
+    id: Date.now(),
+    ticker: ticker.toUpperCase(),
+    comment,
+    status, direction, cs,
+    lot: lot ? parseFloat(lot) : null,
+    buyPrice: buyPrice ? parseFloat(buyPrice) : null,
+    sellPrice: sellPrice ? parseFloat(sellPrice) : null,
+    time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+    prices: null
   }
 
+  const updated = { ...allEntries }
+  if (!updated[key]) updated[key] = []
+  updated[key] = [...updated[key], entry]
+  setAllEntries(updated)
+
+  setTicker(''); setComment(''); setLot(''); setBuyPrice(''); setSellPrice('')
+  setLivePriceBadge(''); setAutoBuyPrice(null)
+
+  setSyncing(true)
+  await supabase.from('trade_entries').insert({
+    id: entry.id, date: key, ticker: entry.ticker, comment: entry.comment,
+    status: entry.status, direction: entry.direction, cs: entry.cs,
+    lot: entry.lot, buy_price: entry.buyPrice, sell_price: entry.sellPrice,
+    time: entry.time, prices: null, user_id: currentUser.id
+  })
+  setSyncing(false)
+
+  const pd = await fetchPrice(entry.ticker)
+  if (pd) {
+    setAllEntries(prev => {
+      const updated2 = { ...prev }
+      if (updated2[key]) {
+        updated2[key] = updated2[key].map(e => e.id === entry.id ? { ...e, prices: pd } : e)
+      }
+      return updated2
+    })
+    await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
+  }
+}
   // ── DELETE ENTRY ──────────────────────────────────────
   async function deleteEntry(id: number, date?: string) {
     const d = date || key
