@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 
 // ── TYPES ──────────────────────────────────────────────
 type Status = 'watch' | 'buy' | 'sell'
@@ -92,7 +93,7 @@ async function fetchPrice(ticker: string): Promise<PriceData | null> {
 }
 
 // ── MAIN COMPONENT ──────────────────────────────────────
-import { createClient } from '@/lib/supabase'
+
 const supabase = createClient()
 
 export default function Dashboard() {
