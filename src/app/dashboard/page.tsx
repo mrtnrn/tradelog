@@ -148,50 +148,51 @@ export default function Dashboard() {
   } catch {}
 }
 
-  async function loadData(userId: string) {
-    setLoading(true)
-    const { data: rows, error } = await supabase
-      .from('trade_entries')
-      .select('*')
-      .order('id', { ascending: true })
+async function loadData(userId: string) {
+  setLoading(true)
+  const { data: rows, error } = await supabase
+    .from('trade_entries')
+    .select('*')
+    .eq('user_id', userId)
+    .order('id', { ascending: true })
 
-    if (error) {
-      console.error('loadData error:', error)
-      setLoading(false)
-      return
-}
-    const data: AllEntries = {}
-    for (const row of rows || []) {
-      if (!data[row.date]) data[row.date] = []
-      data[row.date].push({
-        id: row.id, ticker: row.ticker, comment: row.comment,
-        status: row.status, direction: row.direction || 'long',
-        cs: row.cs || (row.status === 'watch' ? 'watch' : `${row.status}-${row.direction || 'long'}`) as CS,
-        lot: row.lot, buyPrice: row.buy_price, sellPrice: row.sell_price,
-        time: row.time, prices: row.prices
-      })
-    }
-    setAllEntries(data)
+  if (error) {
+    console.error('loadData error:', error)
     setLoading(false)
-
-    // Bugünkü fiyatları yükle
-    const today = dateKey(new Date())
-    const todayEntries = data[today] || []
-    if (todayEntries.length > 0) {
-      const tickers = [...new Set(todayEntries.map(e => e.ticker))]
-      const results = await Promise.all(tickers.map(t => fetchPrice(t)))
-      const updated = { ...data }
-      for (let i = 0; i < tickers.length; i++) {
-        const pd = results[i]
-        if (pd && updated[today]) {
-          updated[today] = updated[today].map(e =>
-            e.ticker === tickers[i] ? { ...e, prices: pd } : e
-          )
-        }
-      }
-      setAllEntries(updated)
-    }
+    return
   }
+
+  const data: AllEntries = {}
+  for (const row of rows || []) {
+    if (!data[row.date]) data[row.date] = []
+    data[row.date].push({
+      id: row.id, ticker: row.ticker, comment: row.comment,
+      status: row.status, direction: row.direction || 'long',
+      cs: row.cs || (row.status === 'watch' ? 'watch' : `${row.status}-${row.direction || 'long'}`) as CS,
+      lot: row.lot, buyPrice: row.buy_price, sellPrice: row.sell_price,
+      time: row.time, prices: row.prices
+    })
+  }
+  setAllEntries(data)
+  setLoading(false)
+
+  const today = dateKey(new Date())
+  const todayEntries = data[today] || []
+  if (todayEntries.length > 0) {
+    const tickers = [...new Set(todayEntries.map(e => e.ticker))]
+    const results = await Promise.all(tickers.map(t => fetchPrice(t)))
+    const updated = { ...data }
+    for (let i = 0; i < tickers.length; i++) {
+      const pd = results[i]
+      if (pd && updated[today]) {
+        updated[today] = updated[today].map(e =>
+          e.ticker === tickers[i] ? { ...e, prices: pd } : e
+        )
+      }
+    }
+    setAllEntries(updated)
+  }
+}
 
   // ── CURRENT DATE ENTRIES ─────────────────────────────
   const key = dateKey(currentDate)
