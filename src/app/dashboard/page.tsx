@@ -2,7 +2,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
+
+// ── TYPES ──────────────────────────────────────────────
 
 // ── TYPES ──────────────────────────────────────────────
 type Status = 'watch' | 'buy' | 'sell'
