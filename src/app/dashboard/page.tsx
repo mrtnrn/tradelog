@@ -92,8 +92,11 @@ async function fetchPrice(ticker: string): Promise<PriceData | null> {
 }
 
 // ── MAIN COMPONENT ──────────────────────────────────────
+import { createClient } from '@/lib/supabase'
+const supabase = createClient()
+
 export default function Dashboard() {
-  const supabase = createClient()
+  
   const router = useRouter()
 
   const [user, setUser] = useState<any>(null)
@@ -149,12 +152,16 @@ export default function Dashboard() {
 
   async function loadData(userId: string) {
     setLoading(true)
-    const { data: rows } = await supabase
+    const { data: rows, error } = await supabase
       .from('trade_entries')
       .select('*')
-      .eq('user_id', userId)
       .order('id', { ascending: true })
 
+    if (error) {
+      console.error('loadData error:', error)
+      setLoading(false)
+      return
+}
     const data: AllEntries = {}
     for (const row of rows || []) {
       if (!data[row.date]) data[row.date] = []
