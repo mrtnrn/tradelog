@@ -1,3 +1,36 @@
+/* ── THEMES ── */
+:root, [data-theme="dark"] {
+  --bg: #0a0b0e;
+  --surface: #111318;
+  --surface2: #181b22;
+  --border: #1e2330;
+  --border2: #252b3a;
+  --accent: #00e5a0;
+  --accent2: #00b37a;
+  --text: #e8eaf0;
+  --text2: #8892aa;
+  --text3: #3e4a5e;
+}
+
+[data-theme="light"] {
+  --bg: #f0f2f7;
+  --surface: #ffffff;
+  --surface2: #e8ecf4;
+  --border: #d8dde9;
+  --border2: #c4ccd9;
+  --accent: #00a372;
+  --accent2: #007a55;
+  --text: #18202e;
+  --text2: #56627a;
+  --text3: #96a3b6;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.3s, color 0.3s;
+}
+
 @import "tailwindcss";
 
 :root {

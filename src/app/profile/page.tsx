@@ -1,4 +1,5 @@
 'use client'
+import { useTheme } from '@/lib/theme'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -11,6 +12,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const { theme, setTheme } = useTheme()
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -88,7 +90,39 @@ export default function Profile() {
             className="w-full py-3 bg-[#00e5a0] text-black font-bold rounded-xl hover:bg-[#00b37a] transition-all disabled:opacity-50 mb-3">
             {saving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
-
+{/* AYARLAR */}
+<div className="mt-8 pt-8 border-t border-[#1e2330]">
+  <div className="font-mono text-[10px] text-[#3e4a5e] uppercase tracking-widest mb-4">
+    Ayarlar
+  </div>
+  
+  <div className="flex items-center justify-between">
+    <div>
+      <div className="font-medium text-sm mb-1">Tema</div>
+      <div className="font-mono text-xs text-[#8892aa]">Arayüz renk teması</div>
+    </div>
+    <div className="flex gap-2 bg-[#0a0b0e] rounded-xl p-1 border border-[#252b3a]">
+      <button
+        onClick={() => setTheme('dark')}
+        className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+          theme === 'dark'
+            ? 'bg-[#111318] text-white shadow border border-[#252b3a]'
+            : 'text-[#8892aa] hover:text-white'
+        }`}>
+        🌙 Dark
+      </button>
+      <button
+        onClick={() => setTheme('light')}
+        className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+          theme === 'light'
+            ? 'bg-[#00e5a0] text-black shadow'
+            : 'text-[#8892aa] hover:text-white'
+        }`}>
+        ☀️ Light
+      </button>
+    </div>
+  </div>
+</div>
           <button onClick={signOut}
             className="w-full py-3 border border-[#252b3a] text-[#ff4d6d] font-bold rounded-xl hover:bg-[rgba(255,77,109,0.08)] transition-all">
             Çıkış Yap
