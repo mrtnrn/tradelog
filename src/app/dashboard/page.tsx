@@ -928,7 +928,10 @@ async function addEntry() {
                       {e.deletedAt && <div className="font-mono text-[9px] text-[#3e4a5e] mt-2">Silindi: {new Date(e.deletedAt).toLocaleDateString('tr-TR')}</div>}
                     </div>
                     <div>
-                      <div className="font-mono font-medium mb-1">{e.ticker}</div>
+                      <button
+                      onClick={() => router.push(`/stock/${encodeURIComponent(e.ticker.trim())}`)}
+                      className="font-mono font-medium mb-1 hover:text-[#00e5a0] transition-colors cursor-pointer text-left">{e.ticker}
+                      </button>
                       <p className="text-sm text-[#8892aa] leading-relaxed">{(e.comment||'').slice(0,150)}{(e.comment||'').length>150?'…':''}</p>
                     </div>
                     <button onClick={() => restoreEntry(e.id)}
