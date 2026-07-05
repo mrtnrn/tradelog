@@ -647,7 +647,9 @@ export default function Dashboard() {
         <header className="flex items-center justify-between py-7 mb-8" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg text-black" style={{ background: 'var(--accent)' }}>📈</div>
-            <span className="text-xl font-black">Trade<span style={{ color: 'var(--accent)' }}>Log</span></span>
+            <button onClick={() => router.push('/')} className="text-xl font-black hover:opacity-80 transition-all">
+              Trade<span style={{ color: 'var(--accent)' }}>Log</span>
+            </button>
           </div>
           <div className="flex items-center gap-4">
             {syncing && <span className="text-xs font-mono animate-pulse" style={{ color: 'var(--accent)' }}>⟳ kaydediliyor…</span>}
