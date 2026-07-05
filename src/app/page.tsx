@@ -1,6 +1,30 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Home() {
+  const supabase = createClient()
+  const router = useRouter()
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push('/dashboard')
+      } else {
+        setChecking(false)
+      }
+    })
+  }, [])
+
+  if (checking) return (
+    <div className="min-h-screen bg-[#0a0b0e] flex items-center justify-center">
+      <p className="text-[#8892aa] font-mono text-sm animate-pulse">Yükleniyor…</p>
+    </div>
+  )
+
   return (
     <main className="min-h-screen bg-[#0a0b0e] flex flex-col items-center justify-center p-8">
       <div className="max-w-2xl w-full text-center">
