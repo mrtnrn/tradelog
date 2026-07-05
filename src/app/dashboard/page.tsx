@@ -190,18 +190,35 @@ function StockModal({ ticker, entries, onClose }: {
 }
 
 // ── TRADE MODAL (Portföy satış) ─────────────────────────
+
 function TradeModal({ data, onClose, onSubmit }: {
   data: { ticker: string, avgBuy: number, lots: number, currency: string }
   onClose: () => void
-  onSubmit: (sellPrice: number, lots: number) => void
+  onSubmit: (sellPrice: number, lots: number, date: string, buyPrice: number) => void
 }) {
   const sym = currencySymbol(data.currency)
   const [sellPrice, setSellPrice] = useState('')
   const [sellLots, setSellLots] = useState(String(data.lots))
+  const [buyPrice, setBuyPrice] = useState(data.avgBuy.toFixed(2))
+  const [tradeDate, setTradeDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  })
+  const [loadingPrice, setLoadingPrice] = useState(true)
+
+  // Güncel fiyatı otomatik doldur
+  useEffect(() => {
+    fetchPrice(data.ticker).then(pd => {
+      if (pd?.current) setSellPrice(pd.current.toFixed(2))
+      setLoadingPrice(false)
+    })
+  }, [data.ticker])
 
   const sp = parseFloat(sellPrice)
   const sl = parseFloat(sellLots)
-  const pnl = sp && sl ? (sp - data.avgBuy) * sl : null
+  const bp = parseFloat(buyPrice)
+  const pnl = sp && sl && bp ? (sp - bp) * sl : null
+  const pct = sp && bp ? (sp - bp) / bp * 100 : null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -210,6 +227,8 @@ function TradeModal({ data, onClose, onSubmit }: {
       <div className="w-full max-w-md rounded-2xl overflow-hidden"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
           <div>
@@ -222,52 +241,65 @@ function TradeModal({ data, onClose, onSubmit }: {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Mevcut pozisyon bilgisi */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--text3)' }}>Ort. Maliyet</div>
-                <div className="font-mono text-lg font-medium" style={{ color: 'var(--accent)' }}>{sym}{data.avgBuy.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--text3)' }}>Mevcut Lot</div>
-                <div className="font-mono text-lg font-medium" style={{ color: 'var(--text)' }}>{data.lots}</div>
-              </div>
-            </div>
+          {/* İşlem Tarihi */}
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>
+              İşlem Tarihi
+            </label>
+            <input type="date" value={tradeDate} onChange={e => setTradeDate(e.target.value)}
+              className="w-full rounded-lg px-4 py-3 font-mono text-sm outline-none transition-all"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
           </div>
 
+          {/* Lot */}
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Satış Lot</label>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>
+              Satış Lot <span style={{ color: 'var(--text3)' }}>(max: {data.lots})</span>
+            </label>
             <input type="number" value={sellLots} onChange={e => setSellLots(e.target.value)}
               max={data.lots} min={1}
               className="w-full rounded-lg px-4 py-3 font-mono text-sm outline-none transition-all"
               style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
           </div>
 
+          {/* Alış Fiyatı (düzenlenebilir) */}
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Satış Fiyatı</label>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>
+              Alış Fiyatı <span style={{ color: 'var(--accent)', fontSize: '9px' }}>(ort. maliyet — değiştirilebilir)</span>
+            </label>
+            <input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+              className="w-full rounded-lg px-4 py-3 font-mono text-sm outline-none transition-all"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+          </div>
+
+          {/* Satış Fiyatı */}
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>
+              Satış Fiyatı {loadingPrice && <span className="animate-pulse">yükleniyor…</span>}
+            </label>
             <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)}
               placeholder="0.00"
               className="w-full rounded-lg px-4 py-3 font-mono text-sm outline-none transition-all"
               style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
           </div>
 
-          {/* Anlık K/Z önizleme */}
+          {/* K/Z Önizleme */}
           {pnl !== null && (
-            <div className={`rounded-xl p-4 ${pnl >= 0 ? 'bg-emerald-400/10 border-emerald-400/30' : 'bg-red-400/10 border-red-400/30'} border`}>
+            <div className={`rounded-xl p-4 border ${pnl >= 0 ? 'border-emerald-400/30' : 'border-red-400/30'}`}
+              style={{ background: pnl >= 0 ? 'rgba(0,229,160,0.08)' : 'rgba(255,77,109,0.08)' }}>
               <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--text3)' }}>Tahmini K/Z</div>
               <div className={`font-mono text-2xl font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {pnl >= 0 ? '+' : ''}{sym}{Math.abs(pnl).toFixed(2)}
               </div>
               <div className={`font-mono text-xs mt-1 ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {pnl >= 0 ? '+' : ''}{((sp - data.avgBuy) / data.avgBuy * 100).toFixed(2)}% · {sl} lot
+                {pct! >= 0 ? '+' : ''}{pct!.toFixed(2)}% · {sl} lot · {tradeDate}
               </div>
             </div>
           )}
 
           <button
-            onClick={() => { if (sp && sl) { onSubmit(sp, sl); onClose() } }}
-            disabled={!sellPrice || !sellLots}
+            onClick={() => { if (sp && sl && bp) { onSubmit(sp, sl, tradeDate, bp) } }}
+            disabled={!sellPrice || !sellLots || !buyPrice}
             className="w-full py-3 font-bold rounded-lg text-white transition-all disabled:opacity-40"
             style={{ background: 'var(--red)' }}>
             💸 Satışı Kaydet
@@ -277,7 +309,6 @@ function TradeModal({ data, onClose, onSubmit }: {
     </div>
   )
 }
-
 // ── MAIN COMPONENT ──────────────────────────────────────
 export default function Dashboard() {
   const [supabase] = useState(() => createClient())
@@ -603,35 +634,33 @@ export default function Dashboard() {
   <TradeModal
     data={tradeModal}
     onClose={() => setTradeModal(null)}
-    onSubmit={async (sellPrice, lots) => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const pos = getPosition(tradeModal.ticker)
-      const today = dateKey(new Date())
-      const cs: CS = 'sell-long'
-      const entry: Entry = {
-        id: Date.now(),
-        ticker: tradeModal.ticker,
-        comment: `Portföy satışı — ${lots} lot @ ${tradeModal.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`,
-        status: 'sell', direction: 'long', cs,
-        lot: lots,
-        buyPrice: tradeModal.avgBuy,
-        sellPrice,
-        time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-        prices: null
-      }
-      const updated = { ...allEntries }
-      if (!updated[today]) updated[today] = []
-      updated[today] = [...updated[today], entry]
-      setAllEntries(updated)
-      await supabase.from('trade_entries').insert({
-        id: entry.id, date: today, ticker: entry.ticker, comment: entry.comment,
-        status: 'sell', direction: 'long', cs: 'sell-long',
-        lot: lots, buy_price: tradeModal.avgBuy, sell_price: sellPrice,
-        time: entry.time, prices: null, user_id: session.user.id
-      })
-      setTradeModal(null)
-    }}
+    onSubmit={async (sellPrice, lots, tradeDate, buyPrice) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+  const cs: CS = 'sell-long'
+  const entry: Entry = {
+    id: Date.now(),
+    ticker: tradeModal!.ticker,
+    comment: `Portföy satışı — ${lots} lot @ ${tradeModal!.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`,
+    status: 'sell', direction: 'long', cs,
+    lot: lots,
+    buyPrice: buyPrice,
+    sellPrice,
+    time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+    prices: null
+  }
+  const updated = { ...allEntries }
+  if (!updated[tradeDate]) updated[tradeDate] = []
+  updated[tradeDate] = [...updated[tradeDate], entry]
+  setAllEntries(updated)
+  await supabase.from('trade_entries').insert({
+    id: entry.id, date: tradeDate, ticker: entry.ticker, comment: entry.comment,
+    status: 'sell', direction: 'long', cs: 'sell-long',
+    lot: lots, buy_price: buyPrice, sell_price: sellPrice,
+    time: entry.time, prices: null, user_id: session.user.id
+  })
+  setTradeModal(null)
+}}
   />
 )}
       {modalTicker && (
