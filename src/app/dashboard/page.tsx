@@ -100,29 +100,69 @@ function csBadgeClass(cs: CS) {
 }
 
 // ── STOCK MODAL ─────────────────────────────────────────
-function StockModal({ ticker, entries, onClose }: {
+function StockModal({ ticker, entries, onClose, onAddEntry, user }: {
   ticker: string
   entries: (Entry & { date: string })[]
   onClose: () => void
+  onAddEntry: (entry: Partial<Entry>, date: string) => Promise<void>
+  user: any
 }) {
   const [currentPrice, setCurrentPrice] = useState<PriceData | null>(null)
+  const [activeSection, setActiveSection] = useState<'notes'|'trade'>('notes')
+
+  // Form state
+  const [comment, setComment] = useState('')
+  const [status, setStatus] = useState<Status>('watch')
+  const [direction, setDirection] = useState<Direction>('long')
+  const [lot, setLot] = useState('')
+  const [buyPrice, setBuyPrice] = useState('')
+  const [sellPrice, setSellPrice] = useState('')
+  const [entryDate, setEntryDate] = useState(() => dateKey(new Date()))
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetchPrice(ticker).then(pd => { if (pd) setCurrentPrice(pd) })
+    fetchPrice(ticker).then(pd => {
+      if (pd) {
+        setCurrentPrice(pd)
+        setBuyPrice(pd.current.toFixed(2))
+      }
+    })
   }, [ticker])
 
   const sym = currencySymbol(currentPrice?.currency || 'USD')
   const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
 
+  async function handleSubmit() {
+    if (!comment.trim()) return
+    setSaving(true)
+    const cs = compositeStatus(status, direction)
+    const entry: Partial<Entry> = {
+      id: Date.now(),
+      ticker,
+      comment,
+      status, direction, cs,
+      lot: lot ? parseFloat(lot) : null,
+      buyPrice: buyPrice ? parseFloat(buyPrice) : null,
+      sellPrice: sellPrice ? parseFloat(sellPrice) : null,
+      time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+      prices: currentPrice
+    }
+    await onAddEntry(entry, entryDate)
+    setComment('')
+    setLot('')
+    setSaving(false)
+    setActiveSection('notes')
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden"
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         onClick={e => e.stopPropagation()}>
 
-        {/* Modal Header */}
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
           <div>
@@ -147,43 +187,158 @@ function StockModal({ ticker, entries, onClose }: {
               </div>
             )}
             <button onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-              ✕
-            </button>
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>✕</button>
           </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="overflow-y-auto flex-1 divide-y" style={{ borderColor: 'var(--border)' }}>
-          {sorted.map(e => {
-            const cur = e.prices?.currency || (e.ticker?.endsWith('.IS') ? 'TRY' : 'USD')
-            const esym = currencySymbol(cur)
-            return (
-              <div key={e.id} className="px-6 py-4"
-                style={{ borderLeft: `3px solid ${csBorderColor(e.cs)}` }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs" style={{ color: 'var(--text2)' }}>{e.date}</span>
-                    {e.time && <span className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</span>}
+        {/* Tabs */}
+        <div className="flex gap-1 p-2 border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
+          {[
+            { id: 'notes', label: '📋 Notlar' },
+            { id: 'trade', label: '➕ Yeni Kayıt' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setActiveSection(t.id as any)}
+              className="px-4 py-2 rounded-lg text-xs font-semibold transition-all"
+              style={activeSection === t.id
+                ? { background: 'var(--accent)', color: '#000' }
+                : { color: 'var(--text2)' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Notes section */}
+        {activeSection === 'notes' && (
+          <div className="overflow-y-auto flex-1 divide-y" style={{ borderColor: 'var(--border)' }}>
+            {sorted.length === 0 ? (
+              <div className="text-center py-16" style={{ color: 'var(--text3)' }}>
+                <p className="font-mono text-sm">Henüz kayıt yok.</p>
+              </div>
+            ) : sorted.map(e => {
+              const cur = e.prices?.currency || (e.ticker?.endsWith('.IS') ? 'TRY' : 'USD')
+              const esym = currencySymbol(cur)
+              return (
+                <div key={e.id} className="px-6 py-4"
+                  style={{ borderLeft: `3px solid ${csBorderColor(e.cs)}` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs" style={{ color: 'var(--text2)' }}>{e.date}</span>
+                      {e.time && <span className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</span>}
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>
+                      {SL[e.cs]}
+                    </span>
                   </div>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>
-                    {SL[e.cs]}
-                  </span>
+                  {e.lot && (
+                    <div className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full mb-2"
+                      style={{ background: 'var(--surface2)', color: 'var(--text3)' }}>
+                      📦 {e.lot} lot{e.buyPrice ? ` · ${esym}${e.buyPrice}` : ''}{e.sellPrice ? ` · ${esym}${e.sellPrice}` : ''}
+                    </div>
+                  )}
+                  <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--text2)' }}>
+                    {e.comment}
+                  </p>
                 </div>
-                {e.lot && (
-                  <div className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full mb-2"
-                    style={{ background: 'var(--surface2)', color: 'var(--text3)' }}>
-                    📦 {e.lot} lot{e.buyPrice ? ` · ${esym}${e.buyPrice}` : ''}{e.sellPrice ? ` · ${esym}${e.sellPrice}` : ''}
+              )
+            })}
+          </div>
+        )}
+
+        {/* New entry section */}
+        {activeSection === 'trade' && (
+          <div className="overflow-y-auto flex-1 p-6 space-y-4">
+            {/* Date */}
+            <div>
+              <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Tarih</label>
+              <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)}
+                className="w-full rounded-lg px-4 py-2.5 font-mono text-sm outline-none transition-all"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Durum</label>
+              <div className="flex gap-2">
+                {(['watch','buy','sell'] as Status[]).map(s => (
+                  <button key={s} onClick={() => setStatus(s)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-all"
+                    style={status === s ? {
+                      background: s==='watch'?'rgba(255,209,102,0.1)':s==='buy'?'var(--accent-dim)':'rgba(255,77,109,0.1)',
+                      borderColor: s==='watch'?'var(--yellow)':s==='buy'?'var(--accent)':'var(--red)',
+                      color: s==='watch'?'var(--yellow)':s==='buy'?'var(--accent)':'var(--red)'
+                    } : { borderColor: 'var(--border2)', color: 'var(--text2)' }}>
+                    {s === 'watch' ? '👁 Takip' : s === 'buy' ? '✅ Alındı' : '💸 Satıldı'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Direction */}
+            {status !== 'watch' && (
+              <div>
+                <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Yön</label>
+                <div className="flex gap-2 w-40">
+                  {(['long','short'] as Direction[]).map(d => (
+                    <button key={d} onClick={() => setDirection(d)}
+                      className="flex-1 py-2 rounded-lg text-xs font-bold border transition-all"
+                      style={direction === d ? {
+                        background: d==='long'?'var(--accent-dim)':'rgba(96,165,250,0.1)',
+                        borderColor: d==='long'?'var(--accent)':'var(--blue)',
+                        color: d==='long'?'var(--accent)':'var(--blue)'
+                      } : { borderColor: 'var(--border2)', color: 'var(--text2)' }}>
+                      {d === 'long' ? '↑ Long' : '↓ Short'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trade fields */}
+            {status !== 'watch' && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Lot</label>
+                  <input type="number" value={lot} onChange={e => setLot(e.target.value)}
+                    className="w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none transition-all"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }}
+                    placeholder="100" />
+                </div>
+                <div>
+                  <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Alış Fiyatı</label>
+                  <input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                    className="w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none transition-all"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }}
+                    placeholder="0.00" />
+                </div>
+                {status === 'sell' && (
+                  <div>
+                    <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Satış Fiyatı</label>
+                    <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)}
+                      className="w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none transition-all"
+                      style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }}
+                      placeholder="0.00" />
                   </div>
                 )}
-                <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--text2)' }}>
-                  {e.comment}
-                </p>
               </div>
-            )
-          })}
-        </div>
+            )}
+
+            {/* Comment */}
+            <div>
+              <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Yorum & Analiz</label>
+              <textarea value={comment} onChange={e => setComment(e.target.value)}
+                className="w-full rounded-lg px-4 py-3 text-sm outline-none resize-y min-h-24 transition-all"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }}
+                placeholder="Bu hisse neden ilgi çekici?…" />
+            </div>
+
+            <button onClick={handleSubmit} disabled={!comment.trim() || saving}
+              className="w-full py-3 font-bold rounded-lg text-black transition-all disabled:opacity-40"
+              style={{ background: 'var(--accent)' }}>
+              {saving ? 'Kaydediliyor…' : '+ Kayıt Ekle'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -695,7 +850,23 @@ export default function Dashboard() {
           ticker={modalTicker}
           entries={getAllEntriesForTicker(modalTicker)}
           onClose={() => setModalTicker(null)}
-        />
+          user={user}
+          onAddEntry={async (entry, date) => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) return
+            const fullEntry = { ...entry, id: entry.id || Date.now() } as Entry
+            const updated = { ...allEntries }
+            if (!updated[date]) updated[date] = []
+            updated[date] = [...updated[date], fullEntry]
+            setAllEntries(updated)
+            await supabase.from('trade_entries').insert({
+              id: fullEntry.id, date, ticker: fullEntry.ticker, comment: fullEntry.comment,
+              status: fullEntry.status, direction: fullEntry.direction, cs: fullEntry.cs,
+              lot: fullEntry.lot, buy_price: fullEntry.buyPrice, sell_price: fullEntry.sellPrice,
+              time: fullEntry.time, prices: fullEntry.prices, user_id: session.user.id
+            })
+          }}
+       />
       )}
 
       <div className="relative z-10 max-w-[1150px] mx-auto px-6 pb-20">
@@ -709,7 +880,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-4">
             {syncing && <span className="text-xs font-mono animate-pulse" style={{ color: 'var(--accent)' }}>⟳ kaydediliyor…</span>}
-            <span className="text-xs font-mono hidden sm:block" style={{ color: 'var(--text2)' }}>{user?.email}</span>
+            <span className="text-xs font-mono hidden sm:block" style={{ color: 'var(--text2)' }}>{user?.user_metadata?.full_name || user?.email?.split('@')[0]}</span>
             <button onClick={() => router.push('/profile')}
               className="px-3 py-2 rounded-lg text-xs font-mono transition-all"
               style={{ border: '1px solid var(--border2)', color: 'var(--text2)' }}>
@@ -923,8 +1094,8 @@ export default function Dashboard() {
                             </div>
                             {e.buyPrice && e.prices.current && (() => {
                               const pnl = e.cs === 'sell-long' && e.sellPrice
-                                ? (e.sellPrice - e.buyPrice!) * (e.lot || 1)
-                                : (e.prices!.current - e.buyPrice!) * (e.lot || 1)
+                                ? (e.sellPrice - e.buyPrice!) * (e.lot ?? 1)
+                                : (e.prices!.current - e.buyPrice!) * (e.lot ?? 1)
                               const isPos = pnl >= 0
                               return (
                                 <div>
