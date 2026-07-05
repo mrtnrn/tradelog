@@ -189,6 +189,95 @@ function StockModal({ ticker, entries, onClose }: {
   )
 }
 
+// ── TRADE MODAL (Portföy satış) ─────────────────────────
+function TradeModal({ data, onClose, onSubmit }: {
+  data: { ticker: string, avgBuy: number, lots: number, currency: string }
+  onClose: () => void
+  onSubmit: (sellPrice: number, lots: number) => void
+}) {
+  const sym = currencySymbol(data.currency)
+  const [sellPrice, setSellPrice] = useState('')
+  const [sellLots, setSellLots] = useState(String(data.lots))
+
+  const sp = parseFloat(sellPrice)
+  const sl = parseFloat(sellLots)
+  const pnl = sp && sl ? (sp - data.avgBuy) * sl : null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
+          <div>
+            <div className="font-mono text-xl font-medium tracking-widest" style={{ color: 'var(--text)' }}>{data.ticker}</div>
+            <div className="font-mono text-xs mt-1" style={{ color: 'var(--text3)' }}>Long Satış İşlemi</div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>✕</button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Mevcut pozisyon bilgisi */}
+          <div className="rounded-xl p-4" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--text3)' }}>Ort. Maliyet</div>
+                <div className="font-mono text-lg font-medium" style={{ color: 'var(--accent)' }}>{sym}{data.avgBuy.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--text3)' }}>Mevcut Lot</div>
+                <div className="font-mono text-lg font-medium" style={{ color: 'var(--text)' }}>{data.lots}</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Satış Lot</label>
+            <input type="number" value={sellLots} onChange={e => setSellLots(e.target.value)}
+              max={data.lots} min={1}
+              className="w-full rounded-lg px-4 py-3 font-mono text-sm outline-none transition-all"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Satış Fiyatı</label>
+            <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full rounded-lg px-4 py-3 font-mono text-sm outline-none transition-all"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+          </div>
+
+          {/* Anlık K/Z önizleme */}
+          {pnl !== null && (
+            <div className={`rounded-xl p-4 ${pnl >= 0 ? 'bg-emerald-400/10 border-emerald-400/30' : 'bg-red-400/10 border-red-400/30'} border`}>
+              <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--text3)' }}>Tahmini K/Z</div>
+              <div className={`font-mono text-2xl font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {pnl >= 0 ? '+' : ''}{sym}{Math.abs(pnl).toFixed(2)}
+              </div>
+              <div className={`font-mono text-xs mt-1 ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {pnl >= 0 ? '+' : ''}{((sp - data.avgBuy) / data.avgBuy * 100).toFixed(2)}% · {sl} lot
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => { if (sp && sl) { onSubmit(sp, sl); onClose() } }}
+            disabled={!sellPrice || !sellLots}
+            className="w-full py-3 font-bold rounded-lg text-white transition-all disabled:opacity-40"
+            style={{ background: 'var(--red)' }}>
+            💸 Satışı Kaydet
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── MAIN COMPONENT ──────────────────────────────────────
 export default function Dashboard() {
   const [supabase] = useState(() => createClient())
@@ -229,6 +318,13 @@ export default function Dashboard() {
   const [dpYear, setDpYear] = useState(new Date().getFullYear())
   const [dpMonth, setDpMonth] = useState(new Date().getMonth())
   const [dpSelected, setDpSelected] = useState(new Date())
+
+  // Hisse Takip görünüm ayarları
+  const [tickerSort, setTickerSort] = useState<'alpha'|'recent'>('recent')
+  const [tickerLayout, setTickerLayout] = useState<'grid'|'list'>('grid')
+
+  // Portföy işlem modalı
+  const [tradeModal, setTradeModal] = useState<{ticker: string, avgBuy: number, lots: number, currency: string}|null>(null)
 
   // ── AUTH & LOAD ──────────────────────────────────────
   useEffect(() => {
@@ -502,6 +598,42 @@ export default function Dashboard() {
       }} />
 
       {/* Stock Modal */}
+      {/* Trade Modal */}
+{tradeModal && (
+  <TradeModal
+    data={tradeModal}
+    onClose={() => setTradeModal(null)}
+    onSubmit={async (sellPrice, lots) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const pos = getPosition(tradeModal.ticker)
+      const today = dateKey(new Date())
+      const cs: CS = 'sell-long'
+      const entry: Entry = {
+        id: Date.now(),
+        ticker: tradeModal.ticker,
+        comment: `Portföy satışı — ${lots} lot @ ${tradeModal.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`,
+        status: 'sell', direction: 'long', cs,
+        lot: lots,
+        buyPrice: tradeModal.avgBuy,
+        sellPrice,
+        time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+        prices: null
+      }
+      const updated = { ...allEntries }
+      if (!updated[today]) updated[today] = []
+      updated[today] = [...updated[today], entry]
+      setAllEntries(updated)
+      await supabase.from('trade_entries').insert({
+        id: entry.id, date: today, ticker: entry.ticker, comment: entry.comment,
+        status: 'sell', direction: 'long', cs: 'sell-long',
+        lot: lots, buy_price: tradeModal.avgBuy, sell_price: sellPrice,
+        time: entry.time, prices: null, user_id: session.user.id
+      })
+      setTradeModal(null)
+    }}
+  />
+)}
       {modalTicker && (
         <StockModal
           ticker={modalTicker}
@@ -779,7 +911,15 @@ export default function Dashboard() {
                   map[e.ticker].push({ ...e, date })
                 }
               }
-              const tickers = Object.keys(map).filter(t => !tickerSearch || t.includes(tickerSearch)).sort()
+              const tickers = Object.keys(map)
+                .filter(t => !tickerSearch || t.includes(tickerSearch))
+                .sort((a, b) => {
+                if (tickerSort === 'alpha') return a.localeCompare(b)
+                // En son yorum tarihine göre
+                const latestA = Math.max(...map[a].map(e => new Date(e.date).getTime()))
+                const latestB = Math.max(...map[b].map(e => new Date(e.date).getTime()))
+                return latestB - latestA
+                })
 
               return (
                 <>
@@ -787,7 +927,41 @@ export default function Dashboard() {
                     <h2 className="text-lg font-bold">Hisse Takip</h2>
                     <span className="font-mono text-xs px-3 py-1 rounded-full" style={{ background: 'var(--surface2)', color: 'var(--text2)' }}>{tickers.length} hisse</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {/* Sıralama ve görünüm */}
+<div className="flex items-center justify-between mb-4">
+  <div className="flex gap-2">
+    <button onClick={() => setTickerSort('recent')}
+      className="px-3 py-1.5 rounded-lg text-xs font-mono transition-all"
+      style={tickerSort === 'recent'
+        ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)' }
+        : { border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+      Son Yorum
+    </button>
+    <button onClick={() => setTickerSort('alpha')}
+      className="px-3 py-1.5 rounded-lg text-xs font-mono transition-all"
+      style={tickerSort === 'alpha'
+        ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)' }
+        : { border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+      A→Z
+    </button>
+  </div>
+  <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface2)' }}>
+    <button onClick={() => setTickerLayout('grid')}
+      className="px-3 py-1 rounded-md text-xs transition-all"
+      style={tickerLayout === 'grid'
+        ? { background: 'var(--surface)', color: 'var(--text)' }
+        : { color: 'var(--text2)' }}>⊞ Grid</button>
+    <button onClick={() => setTickerLayout('list')}
+      className="px-3 py-1 rounded-md text-xs transition-all"
+      style={tickerLayout === 'list'
+        ? { background: 'var(--surface)', color: 'var(--text)' }
+        : { color: 'var(--text2)' }}>☰ Liste</button>
+  </div>
+</div>
+                  
+                  <div className={tickerLayout === 'grid'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+                    : 'flex flex-col gap-2'}>
                     {tickers.map(t => {
                       const ents = map[t]
                       const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
@@ -796,13 +970,16 @@ export default function Dashboard() {
                       const sym = currencySymbol(cur)
                       return (
                         <button key={t} onClick={() => setModalTicker(t)}
-                          className="rounded-xl p-5 text-left transition-all hover:-translate-y-0.5"
-                          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)' }}>{t}</div>
-                            <div className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--surface2)', color: 'var(--text3)' }}>{ents.length} yorum</div>
-                          </div>
-                          <div className="font-mono text-sm mb-2">
+                          className="rounded-xl p-4 text-left transition-all"
+                          style={{
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            display: tickerLayout === 'list' ? 'flex' : 'block',
+                            alignItems: tickerLayout === 'list' ? 'center' : undefined,
+                            gap: tickerLayout === 'list' ? '16px' : undefined,
+                          }}>
+                          <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)', minWidth: tickerLayout === 'list' ? '80px' : undefined }}>{t}</div>
+                          <div className="font-mono text-sm" style={{ flex: tickerLayout === 'list' ? 1 : undefined }}>
                             {p?.current ? (
                               <>
                                 {sym}{p.current.toFixed(2)}
@@ -814,8 +991,10 @@ export default function Dashboard() {
                               </>
                             ) : <span style={{ color: 'var(--text3)', fontSize: '12px' }}>—</span>}
                           </div>
-                          <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>Son: {latest.date}</div>
-                        </button>
+                          <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>
+                            {ents.length} yorum · Son: {latest.date}
+                          </div>
+                      </button>
                       )
                     })}
                   </div>
@@ -895,7 +1074,16 @@ export default function Dashboard() {
                         const uPct = cp && pos.avgBuy ? (cp - pos.avgBuy) / pos.avgBuy * 100 : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td className="py-3 px-3">
-                            <button onClick={() => setModalTicker(t)} className="font-mono font-medium hover:underline" style={{ color: 'var(--accent)' }}>{t}</button>
+                            <button onClick={() => setTradeModal({
+                              ticker: t,
+                              avgBuy: pos.avgBuy,
+                              lots: pos.longLots,
+                              currency: pos.currency
+                            })}
+                              className="font-mono font-medium hover:underline flex items-center gap-1"
+                              style={{ color: 'var(--accent)' }}>
+                              {t} <span className="text-[9px]" style={{ color: 'var(--text3)' }}>↗ sat</span>
+                            </button>
                           </td>
                           <td className="py-3 px-3 font-mono">{pos.longLots}</td>
                           <td className="py-3 px-3 font-mono">{sym}{pos.avgBuy.toFixed(2)}</td>
