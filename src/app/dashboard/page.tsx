@@ -493,7 +493,34 @@ export default function Dashboard() {
       deleted_at: new Date().toISOString(), user_id: session.user.id
     })
   }
+  // ── Revert Trade ─────────────────────────────────────
+  async function revertTrade(entryId: number) {
+    if (!confirm('Bu işlemi geri almak istediğinize emin misiniz?')) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
 
+    // Tüm tarihlerde bu entry'i bul
+    for (const [date, ents] of Object.entries(allEntries)) {
+      const idx = ents.findIndex(e => e.id === entryId)
+      if (idx !== -1) {
+        const entry = ents[idx]
+        // Sadece sell-long ve buy-short geri alınabilir
+        if (entry.cs !== 'sell-long' && entry.cs !== 'buy-short') {
+          alert('Bu işlem türü geri alınamaz.')
+          return
+        }
+        // State'ten kaldır
+        const updated = { ...allEntries }
+        updated[date] = updated[date].filter(e => e.id !== entryId)
+        if (updated[date].length === 0) delete updated[date]
+        setAllEntries(updated)
+
+        // Supabase'den sil
+        await supabase.from('trade_entries').delete().eq('id', entryId)
+        return
+      }
+    }
+  }
   // ── RESTORE ENTRY ─────────────────────────────────────
   async function restoreEntry(id: number) {
     const { data: { session } } = await supabase.auth.getSession()
@@ -1142,7 +1169,7 @@ export default function Dashboard() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead><tr className="font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--text3)', borderBottom: '1px solid var(--border)' }}>
-                      {['Tarih', 'Hisse', 'Yön', 'Lot', 'Giriş', 'Çıkış', 'K/Z', 'K/Z %'].map(h => <th key={h} className="text-left py-2 px-3">{h}</th>)}
+                      {['Tarih','Hisse','Yön','Lot','Giriş','Çıkış','K/Z','K/Z %',''].map(h => <th key={h} className="text-left py-2 px-3">{h}</th>)}
                     </tr></thead>
                     <tbody>
                       {[...realized].sort((a, b) => b.date.localeCompare(a.date)).map(r => {
@@ -1159,6 +1186,13 @@ export default function Dashboard() {
                           <td className="py-3 px-3 font-mono">{r.sym}{xp.toFixed(2)}</td>
                           <td className={`py-3 px-3 font-mono font-medium ${r.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.pnl >= 0 ? '+' : ''}{r.sym}{Math.abs(r.pnl).toFixed(2)}</td>
                           <td className={`py-3 px-3 font-mono ${r.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.pct >= 0 ? '+' : ''}{r.pct.toFixed(2)}%</td>
+                          <td className="py-3 px-3">
+                            <button onClick={() => revertTrade(r.id)}
+                              className="font-mono text-[10px] px-3 py-1 rounded-lg transition-all whitespace-nowrap"
+                              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                              ↩ Geri Al
+                            </button>
+                          </td>
                         </tr>
                       })}
                     </tbody>
