@@ -808,40 +808,71 @@ export default function Dashboard() {
 
   // ── PORTFOLIO BUILD ───────────────────────────────────
   function buildPortfolio() {
-    const allFlat: (Entry & { date: string })[] = []
-    for (const [date, ents] of Object.entries(allEntries)) {
-      for (const e of ents) allFlat.push({ ...e, date })
-    }
-    allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
-    const positions: Record<string, any> = {}
-    const realized: any[] = []
-    for (const e of allFlat) {
-      const t = e.ticker
-      const cur = e.prices?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
-      if (!positions[t]) positions[t] = { longLots: 0, avgBuy: 0, shortLots: 0, avgShort: 0, currency: cur, prices: e.prices }
-      const pos = positions[t]
-      if (e.prices) { pos.prices = e.prices; pos.currency = e.prices.currency }
-      if (e.cs === 'buy-long' && e.lot && e.buyPrice) {
-        const total = pos.longLots * pos.avgBuy + e.lot * e.buyPrice
-        pos.longLots += e.lot; pos.avgBuy = total / pos.longLots
-      } else if (e.cs === 'sell-long' && e.lot) {
-        const lots = Math.min(e.lot, pos.longLots || e.lot)
-        const cost = e.buyPrice || pos.avgBuy
-        if (cost && e.sellPrice) realized.push({ id: e.id, ticker: t, lots, pnl: (e.sellPrice - cost) * lots, pct: (e.sellPrice - cost) / cost * 100, type: 'long', currency: cur, sym: currencySymbol(cur), buyPrice: cost, sellPrice: e.sellPrice, date: e.date })
-        pos.longLots = Math.max(0, (pos.longLots || 0) - lots)
-        if (pos.longLots === 0) pos.avgBuy = 0
-      } else if (e.cs === 'sell-short' && e.lot && e.sellPrice) {
-        const total = pos.shortLots * pos.avgShort + e.lot * e.sellPrice
-        pos.shortLots += e.lot; pos.avgShort = total / pos.shortLots
-      } else if (e.cs === 'buy-short' && e.lot && e.buyPrice && e.sellPrice) {
-        const lots = Math.min(e.lot, pos.shortLots)
-        realized.push({ id: e.id, ticker: t, lots, pnl: (e.sellPrice - e.buyPrice) * lots, pct: (e.sellPrice - e.buyPrice) / e.sellPrice * 100, type: 'short', currency: cur, sym: currencySymbol(cur), buyPrice: e.buyPrice, sellPrice: e.sellPrice, date: e.date })
-        pos.shortLots = Math.max(0, pos.shortLots - lots)
-        if (pos.shortLots === 0) pos.avgShort = 0
-      }
-    }
-    return { positions, realized }
+  const allFlat: (Entry & { date: string })[] = []
+  for (const [date, ents] of Object.entries(allEntries)) {
+    for (const e of ents) allFlat.push({ ...e, date })
   }
+  allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+
+  const positions: Record<string, any> = {}
+  const realized: any[] = []
+
+  for (const e of allFlat) {
+    const t = e.ticker
+    const cur = e.prices?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
+
+    if (!positions[t]) {
+      positions[t] = { longLots: 0, avgBuy: 0, shortLots: 0, avgShort: 0, currency: cur, prices: e.prices }
+    }
+    const pos = positions[t]
+    if (e.prices) { pos.prices = e.prices; pos.currency = e.prices.currency }
+
+    const cs = e.cs || (e.status === 'watch' ? 'watch' : `${e.status}-${e.direction || 'long'}`)
+
+    if (cs === 'buy-long' && e.lot != null && e.lot > 0 && e.buyPrice != null && e.buyPrice > 0) {
+      // Ağırlıklı ortalama maliyet hesabı
+      const totalCost = pos.longLots * pos.avgBuy + e.lot * e.buyPrice
+      pos.longLots += e.lot
+      pos.avgBuy = totalCost / pos.longLots
+
+    } else if (cs === 'sell-long' && e.lot != null && e.lot > 0) {
+      const lots = Math.min(e.lot, pos.longLots || e.lot)
+      const cost = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : pos.avgBuy
+      if (cost > 0 && e.sellPrice != null && e.sellPrice > 0) {
+        realized.push({
+          id: e.id, ticker: t, lots,
+          pnl: (e.sellPrice - cost) * lots,
+          pct: (e.sellPrice - cost) / cost * 100,
+          type: 'long', currency: pos.currency,
+          sym: currencySymbol(pos.currency),
+          buyPrice: cost, sellPrice: e.sellPrice, date: e.date
+        })
+      }
+      pos.longLots = Math.max(0, (pos.longLots || 0) - lots)
+      if (pos.longLots === 0) pos.avgBuy = 0
+
+    } else if (cs === 'sell-short' && e.lot != null && e.lot > 0 && e.sellPrice != null) {
+      const totalCost = pos.shortLots * pos.avgShort + e.lot * e.sellPrice
+      pos.shortLots += e.lot
+      pos.avgShort = totalCost / pos.shortLots
+
+    } else if (cs === 'buy-short' && e.lot != null && e.lot > 0 && e.buyPrice != null && e.sellPrice != null) {
+      const lots = Math.min(e.lot, pos.shortLots)
+      realized.push({
+        id: e.id, ticker: t, lots,
+        pnl: (e.sellPrice - e.buyPrice) * lots,
+        pct: (e.sellPrice - e.buyPrice) / e.sellPrice * 100,
+        type: 'short', currency: pos.currency,
+        sym: currencySymbol(pos.currency),
+        buyPrice: e.buyPrice, sellPrice: e.sellPrice, date: e.date
+      })
+      pos.shortLots = Math.max(0, pos.shortLots - lots)
+      if (pos.shortLots === 0) pos.avgShort = 0
+    }
+  }
+
+  return { positions, realized }
+}
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
