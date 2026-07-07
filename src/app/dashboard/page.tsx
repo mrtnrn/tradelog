@@ -539,7 +539,7 @@ export default function Dashboard() {
   // Portfolio
   const [pfCurrency, setPfCurrency] = useState<'TRY'|'USD'>('TRY')
   const [usdTryRate, setUsdTryRate] = useState<number|null>(null)
-
+  const [portfolioPrices, setPortfolioPrices] = useState<Record<string, PriceData>>({})
   // Date picker
   const [dpOpen, setDpOpen] = useState(false)
   const [dpYear, setDpYear] = useState(new Date().getFullYear())
@@ -563,6 +563,23 @@ export default function Dashboard() {
     })
   }, [])
 
+  async function refreshPortfolioPrices(data: AllEntries) {
+  const tickers = new Set<string>()
+  for (const ents of Object.values(data)) {
+    for (const e of ents) {
+      if (e.status === 'buy') tickers.add(e.ticker.trim())
+    }
+  }
+  const results = await Promise.all([...tickers].map(async t => {
+    const pd = await fetchPrice(t)
+    return { t, pd }
+  }))
+  const prices: Record<string, PriceData> = {}
+  for (const { t, pd } of results) {
+    if (pd) prices[t] = pd
+  }
+  setPortfolioPrices(prices)
+}
   async function fetchUSDTRY() {
     try {
       const res = await fetch('/api/price?ticker=USDTRY')
@@ -608,6 +625,7 @@ export default function Dashboard() {
         }
       }
       setAllEntries(updated)
+      refreshPortfolioPrices(data)
     }
   }
 
@@ -784,7 +802,21 @@ export default function Dashboard() {
     }
     return { longLots, avgBuy, shortLots, avgShort }
   }
-
+  function switchToTab(tab: typeof activeTab) {
+  setActiveTab(tab)
+  if (tab === 'portfolio') {
+    const tickers = new Set<string>()
+    for (const ents of Object.values(allEntries)) {
+      for (const e of ents) {
+        if (e.status === 'buy') tickers.add(e.ticker.trim())
+      }
+    }
+    Promise.all([...tickers].map(async t => {
+      const pd = await fetchPrice(t)
+      if (pd) setPortfolioPrices(prev => ({ ...prev, [t]: pd }))
+    }))
+  }
+}
   async function signOut() {
     await supabase.auth.signOut()
     router.push('/')
@@ -987,7 +1019,7 @@ function buildPortfolio() {
         {/* TABS */}
         <div className="flex gap-1 rounded-xl p-1 mb-7" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           {tabs.map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
+            <button key={t.id} onClick={() => switchToTab(t.id as typeof activeTab)}
               className="flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all"
               style={activeTab === t.id
                 ? { background: 'var(--surface2)', color: 'var(--text)' }
@@ -1328,6 +1360,12 @@ function buildPortfolio() {
           const { positions, realized } = buildPortfolio()
           const openLong = Object.entries(positions).filter(([, p]) => p.longLots > 0)
           const openShort = Object.entries(positions).filter(([, p]) => p.shortLots > 0)
+          for (const [t, pos] of Object.entries(positions)) {
+            if (portfolioPrices[t]) {
+              pos.prices = portfolioPrices[t]
+              pos.currency = portfolioPrices[t].currency
+            }
+          }
 
           function convertPnl(pnl: number, cur: string) {
             if (cur === pfCurrency) return pnl
