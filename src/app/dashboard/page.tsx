@@ -895,21 +895,23 @@ function buildPortfolio() {
         else pos.totalCost = pos.longLots * pos.avgBuy
       }
 
-    } else if (cs === 'sell-short') {
+    } else if (cs === 'buy-short') {
+      // buy + short direction = short pozisyon AÇ (short entry)
       const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
-      if (lotCount > 0 && e.sellPrice != null) {
-        const totalCost = pos.shortLots * pos.avgShort + lotCount * e.sellPrice
+      if (lotCount > 0 && e.buyPrice != null) {
+        const totalCost = pos.shortLots * pos.avgShort + lotCount * e.buyPrice
         pos.shortLots += lotCount
         pos.avgShort = totalCost / pos.shortLots
       }
 
-    } else if (cs === 'buy-short') {
+    } else if (cs === 'sell-short') {
+      // sell + short direction = short pozisyon KAPAT (cover)
       const lots = Math.min(e.lot || 0, pos.shortLots || 0)
-      if (lots > 0 && e.buyPrice != null && e.sellPrice != null) {
+      if (lots > 0 && e.sellPrice != null && e.buyPrice != null) {
         realized.push({
           id: e.id, ticker: t, lots,
-          pnl: (e.sellPrice - e.buyPrice) * lots,
-          pct: (e.sellPrice - e.buyPrice) / e.sellPrice * 100,
+          pnl: (e.buyPrice - e.sellPrice) * lots,
+          pct: (e.buyPrice - e.sellPrice) / e.buyPrice * 100,
           type: 'short', currency: pos.currency,
           sym: currencySymbol(pos.currency),
           buyPrice: e.buyPrice, sellPrice: e.sellPrice, date: e.date
@@ -1433,8 +1435,8 @@ function buildPortfolio() {
                           <td className="py-3 px-3">
                             <button onClick={() => setTradeModal({
                               ticker: t,
-                              avgBuy: pos.avgBuy,
-                              lots: pos.longLots,
+                              avgBuy: pos.avgShort,
+                              lots: pos.shortLots,
                               currency: pos.currency
                             })}
                               className="font-mono font-medium hover:underline flex items-center gap-1"
