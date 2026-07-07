@@ -777,68 +777,6 @@ export default function Dashboard() {
   }
 
   // ── PORTFOLIO POSITION ────────────────────────────────
-  function getPosition(t: string) {
-    const allFlat: (Entry & { date: string })[] = []
-    for (const [date, ents] of Object.entries(allEntries)) {
-      for (const e of ents) allFlat.push({ ...e, date })
-    }
-    allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
-    let longLots = 0, avgBuy = 0, shortLots = 0, avgShort = 0
-    for (const e of allFlat) {
-      if (e.ticker !== t) continue
-      if (e.cs === 'buy-long' && e.lot && e.buyPrice) {
-        const total = longLots * avgBuy + e.lot * e.buyPrice
-        longLots += e.lot; avgBuy = total / longLots
-      } else if (e.cs === 'sell-long' && e.lot) {
-        longLots = Math.max(0, longLots - e.lot)
-        if (longLots === 0) avgBuy = 0
-      } else if (e.cs === 'sell-short' && e.lot && e.sellPrice) {
-        const total = shortLots * avgShort + e.lot * e.sellPrice
-        shortLots += e.lot; avgShort = total / shortLots
-      } else if (e.cs === 'buy-short' && e.lot) {
-        shortLots = Math.max(0, shortLots - e.lot)
-        if (shortLots === 0) avgShort = 0
-      }
-    }
-    return { longLots, avgBuy, shortLots, avgShort }
-  }
-  function switchToTab(tab: typeof activeTab) {
-  setActiveTab(tab)
-  if (tab === 'portfolio') {
-    const tickers = new Set<string>()
-    for (const ents of Object.values(allEntries)) {
-      for (const e of ents) {
-        if (e.status === 'buy') tickers.add(e.ticker.trim())
-      }
-    }
-    Promise.all([...tickers].map(async t => {
-      const pd = await fetchPrice(t)
-      if (pd) setPortfolioPrices(prev => ({ ...prev, [t]: pd }))
-    }))
-  }
-}
-  async function signOut() {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-      <div className="text-center">
-        <div className="text-4xl mb-4">📈</div>
-        <p className="font-mono text-sm animate-pulse" style={{ color: 'var(--text2)' }}>Veriler yükleniyor…</p>
-      </div>
-    </div>
-  )
-
-  const tabs = [
-    { id: 'daily', label: '📅 Günlük' },
-    { id: 'tickers', label: '🔖 Hisse Takip' },
-    { id: 'portfolio', label: '💼 Portföy' },
-    { id: 'history', label: '🗂 Geçmiş' },
-  ] as const
-
-  // ── PORTFOLIO BUILD ───────────────────────────────────
 function buildPortfolio() {
   const allFlat: (Entry & { date: string })[] = []
   for (const [date, ents] of Object.entries(allEntries)) {
@@ -850,34 +788,37 @@ function buildPortfolio() {
   const realized: any[] = []
 
   for (const e of allFlat) {
-    const t = e.ticker.trim() // boşlukları temizle
+    const t = e.ticker.trim()
     const cur = e.prices?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
 
     if (!positions[t]) {
-      positions[t] = { longLots: 0, avgBuy: 0, totalCost: 0, shortLots: 0, avgShort: 0, currency: cur, prices: e.prices }
+      positions[t] = {
+        longLots: 0, avgBuy: 0, totalCost: 0,
+        shortLots: 0, avgShort: 0, totalShortCost: 0,
+        currency: cur, prices: e.prices
+      }
     }
     const pos = positions[t]
     if (e.prices) { pos.prices = e.prices; pos.currency = e.prices.currency }
 
     const cs = e.cs || (e.status === 'watch' ? 'watch' : `${e.status}-${e.direction || 'long'}`)
+    const lot = e.lot != null && e.lot > 0 ? e.lot : 0
 
     if (cs === 'buy-long') {
-      const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
-      if (lotCount > 0) {
+      // Long pozisyon AÇ
+      if (lot > 0) {
         if (e.buyPrice != null && e.buyPrice > 0) {
-          // Hem lot hem fiyat var — ağırlıklı ortalama hesapla
-          pos.totalCost += lotCount * e.buyPrice
-          pos.longLots += lotCount
+          pos.totalCost += lot * e.buyPrice
+          pos.longLots += lot
           pos.avgBuy = pos.totalCost / pos.longLots
         } else {
-          // Sadece lot var, fiyat yok — lot'u ekle ama ortalamayı değiştirme
-          pos.longLots += lotCount
-          // avgBuy sıfırsa 0 kalır, değilse mevcut avg korunur
+          pos.longLots += lot
         }
       }
 
     } else if (cs === 'sell-long') {
-      const lots = Math.min(e.lot || 0, pos.longLots || 0)
+      // Long pozisyon KAPAT
+      const lots = Math.min(lot, pos.longLots || 0)
       if (lots > 0) {
         const cost = (e.buyPrice != null && e.buyPrice > 0) ? e.buyPrice : pos.avgBuy
         if (cost > 0 && e.sellPrice != null && e.sellPrice > 0) {
@@ -891,33 +832,42 @@ function buildPortfolio() {
           })
         }
         pos.longLots = Math.max(0, pos.longLots - lots)
+        pos.totalCost = pos.longLots * pos.avgBuy
         if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
-        else pos.totalCost = pos.longLots * pos.avgBuy
       }
 
     } else if (cs === 'buy-short') {
-      // buy + short direction = short pozisyon AÇ (short entry)
-      const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
-      if (lotCount > 0 && e.buyPrice != null) {
-        const totalCost = pos.shortLots * pos.avgShort + lotCount * e.buyPrice
-        pos.shortLots += lotCount
-        pos.avgShort = totalCost / pos.shortLots
+      // Short pozisyon AÇ — "Alındı + Short"
+      // Hisse ödünç alınıp satılıyor, buyPrice = short açılış fiyatı
+      if (lot > 0 && e.buyPrice != null && e.buyPrice > 0) {
+        pos.totalShortCost += lot * e.buyPrice
+        pos.shortLots += lot
+        pos.avgShort = pos.totalShortCost / pos.shortLots
+      } else if (lot > 0) {
+        pos.shortLots += lot
       }
 
     } else if (cs === 'sell-short') {
-      // sell + short direction = short pozisyon KAPAT (cover)
-      const lots = Math.min(e.lot || 0, pos.shortLots || 0)
-      if (lots > 0 && e.sellPrice != null && e.buyPrice != null) {
-        realized.push({
-          id: e.id, ticker: t, lots,
-          pnl: (e.buyPrice - e.sellPrice) * lots,
-          pct: (e.buyPrice - e.sellPrice) / e.buyPrice * 100,
-          type: 'short', currency: pos.currency,
-          sym: currencySymbol(pos.currency),
-          buyPrice: e.buyPrice, sellPrice: e.sellPrice, date: e.date
-        })
+      // Short pozisyon KAPAT — "Satıldı + Short"
+      // sellPrice = geri alış (kapanış) fiyatı
+      const lots = Math.min(lot, pos.shortLots || 0)
+      if (lots > 0) {
+        const openPrice = pos.avgShort // açılış fiyatı
+        const closePrice = e.sellPrice != null && e.sellPrice > 0 ? e.sellPrice : null
+        if (openPrice > 0 && closePrice != null) {
+          // Short K/Z: açılış - kapanış (düşerse kar)
+          realized.push({
+            id: e.id, ticker: t, lots,
+            pnl: (openPrice - closePrice) * lots,
+            pct: (openPrice - closePrice) / openPrice * 100,
+            type: 'short', currency: pos.currency,
+            sym: currencySymbol(pos.currency),
+            buyPrice: openPrice, sellPrice: closePrice, date: e.date
+          })
+        }
         pos.shortLots = Math.max(0, pos.shortLots - lots)
-        if (pos.shortLots === 0) pos.avgShort = 0
+        pos.totalShortCost = pos.shortLots * pos.avgShort
+        if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
       }
     }
   }
@@ -1429,8 +1379,9 @@ function buildPortfolio() {
                       {openLong.map(([t, pos]) => {
                         const cp = pos.prices?.current
                         const sym = currencySymbol(pos.currency)
-                        const uPnl = cp && pos.avgBuy ? (cp - pos.avgBuy) * pos.longLots : null
-                        const uPct = cp && pos.avgBuy ? (cp - pos.avgBuy) / pos.avgBuy * 100 : null
+                        // Short için: açılış - güncel fiyat (düşerse kar)
+                        const uPnl = cp && pos.avgShort ? (pos.avgShort - cp) * pos.shortLots : null
+                        const uPct = cp && pos.avgShort ? (pos.avgShort - cp) / pos.avgShort * 100 : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td className="py-3 px-3">
                             <button onClick={() => setTradeModal({
