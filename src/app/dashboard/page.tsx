@@ -808,6 +808,13 @@ async function signOut() {
   await supabase.auth.signOut()
   router.push('/')
 }
+  const tabs = [
+  { id: 'daily', label: '📅 Günlük' },
+  { id: 'tickers', label: '🔖 Hisse Takip' },
+  { id: 'portfolio', label: '💼 Portföy' },
+  { id: 'history', label: '🗂 Geçmiş' },
+] as const
+
   function buildPortfolio() {
   const allFlat: (Entry & { date: string })[] = []
   for (const [date, ents] of Object.entries(allEntries)) {
