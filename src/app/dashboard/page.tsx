@@ -814,7 +814,21 @@ async function signOut() {
   { id: 'portfolio', label: '💼 Portföy' },
   { id: 'history', label: '🗂 Geçmiş' },
 ] as const
-
+function switchToTab(tab: typeof activeTab) {
+  setActiveTab(tab)
+  if (tab === 'portfolio') {
+    const tickers = new Set<string>()
+    for (const ents of Object.values(allEntries)) {
+      for (const e of ents) {
+        if (e.status === 'buy') tickers.add(e.ticker.trim())
+      }
+    }
+    Promise.all([...tickers].map(async t => {
+      const pd = await fetchPrice(t)
+      if (pd) setPortfolioPrices(prev => ({ ...prev, [t]: pd }))
+    }))
+  }
+}
   function buildPortfolio() {
   const allFlat: (Entry & { date: string })[] = []
   for (const [date, ents] of Object.entries(allEntries)) {
