@@ -556,10 +556,11 @@ export default function Dashboard() {
   // ── AUTH & LOAD ──────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.push('/auth/login'); return }
-      setUser(session.user)
-      loadData(session.user.id)
-      fetchUSDTRY()
+      if (session) {
+        window.location.href = '/dashboard'
+      } else {
+        setChecking(false)
+      }
     })
   }, [])
 
@@ -806,7 +807,7 @@ function getPosition(t: string) {
 
 async function signOut() {
   await supabase.auth.signOut()
-  router.push('/')
+  window.location.href = '/'
 }
   const tabs = [
   { id: 'daily', label: '📅 Günlük' },
@@ -1007,7 +1008,7 @@ function switchToTab(tab: typeof activeTab) {
           <div className="flex items-center gap-4">
             {syncing && <span className="text-xs font-mono animate-pulse" style={{ color: 'var(--accent)' }}>⟳ kaydediliyor…</span>}
             <span className="text-xs font-mono hidden sm:block" style={{ color: 'var(--text2)' }}>{user?.user_metadata?.full_name || user?.email?.split('@')[0]}</span>
-            <button onClick={() => router.push('/profile')}
+            <button onClick={() => window.location.href = '/profile'}
               className="px-3 py-2 rounded-lg text-xs font-mono transition-all"
               style={{ border: '1px solid var(--border2)', color: 'var(--text2)' }}>
               Profil
