@@ -777,7 +777,33 @@ export default function Dashboard() {
   }
 
   // ── PORTFOLIO POSITION ────────────────────────────────
-function buildPortfolio() {
+function getPosition(t: string) {
+  const allFlat: (Entry & { date: string })[] = []
+  for (const [date, ents] of Object.entries(allEntries)) {
+    for (const e of ents) allFlat.push({ ...e, date })
+  }
+  allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+  let longLots = 0, avgBuy = 0, shortLots = 0, avgShort = 0
+  for (const e of allFlat) {
+    if (e.ticker.trim() !== t) continue
+    const cs = e.cs || (e.status === 'watch' ? 'watch' : `${e.status}-${e.direction || 'long'}`)
+    if (cs === 'buy-long' && e.lot && e.buyPrice) {
+      const total = longLots * avgBuy + e.lot * e.buyPrice
+      longLots += e.lot; avgBuy = total / longLots
+    } else if (cs === 'sell-long' && e.lot) {
+      longLots = Math.max(0, longLots - e.lot)
+      if (longLots === 0) avgBuy = 0
+    } else if (cs === 'buy-short' && e.lot && e.buyPrice) {
+      const total = shortLots * avgShort + e.lot * e.buyPrice
+      shortLots += e.lot; avgShort = total / shortLots
+    } else if (cs === 'sell-short' && e.lot) {
+      shortLots = Math.max(0, shortLots - e.lot)
+      if (shortLots === 0) avgShort = 0
+    }
+  }
+  return { longLots, avgBuy, shortLots, avgShort }
+}
+  function buildPortfolio() {
   const allFlat: (Entry & { date: string })[] = []
   for (const [date, ents] of Object.entries(allEntries)) {
     for (const e of ents) allFlat.push({ ...e, date })
