@@ -1,18 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Home() {
-  const supabase = createClient()
-  const router = useRouter()
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
+    const supabase = createClient()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
       } else {
         setChecking(false)
       }
