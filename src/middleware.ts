@@ -2,6 +2,17 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Static dosyalar ve API route'ları için middleware çalıştırma
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -23,12 +34,8 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
   const isAuthPage = pathname.startsWith('/auth')
   const isPublicPage = pathname === '/'
-  const isApiRoute = pathname.startsWith('/api')
-
-  if (isApiRoute) return supabaseResponse
 
   if (!user && !isAuthPage && !isPublicPage) {
     const url = request.nextUrl.clone()
