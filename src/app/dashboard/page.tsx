@@ -803,6 +803,11 @@ function getPosition(t: string) {
   }
   return { longLots, avgBuy, shortLots, avgShort }
 }
+
+async function signOut() {
+  await supabase.auth.signOut()
+  router.push('/')
+}
   function buildPortfolio() {
   const allFlat: (Entry & { date: string })[] = []
   for (const [date, ents] of Object.entries(allEntries)) {
