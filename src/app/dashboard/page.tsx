@@ -555,14 +555,13 @@ export default function Dashboard() {
 
   // ── AUTH & LOAD ──────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        window.location.href = '/dashboard'
-      } else {
-        setChecking(false)
-      }
-    })
-  }, [])
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session) { window.location.href = '/auth/login'; return }
+    setUser(session.user)
+    loadData(session.user.id)
+    fetchUSDTRY()
+  })
+}, [])
 
   async function refreshPortfolioPrices(data: AllEntries) {
   const tickers = new Set<string>()
