@@ -567,7 +567,7 @@ export default function Dashboard() {
   const tickers = new Set<string>()
   for (const ents of Object.values(data)) {
     for (const e of ents) {
-      if (e.status === 'buy') tickers.add(e.ticker.trim())
+      if (e.status === 'buy' || e.status === 'sell') tickers.add(e.ticker.trim())
     }
   }
   const results = await Promise.all([...tickers].map(async t => {
@@ -820,7 +820,7 @@ function switchToTab(tab: typeof activeTab) {
     const tickers = new Set<string>()
     for (const ents of Object.values(allEntries)) {
       for (const e of ents) {
-        if (e.status === 'buy') tickers.add(e.ticker.trim())
+        if (e.status === 'buy' || e.status === 'sell') tickers.add(e.ticker.trim())
       }
     }
     Promise.all([...tickers].map(async t => {
@@ -889,15 +889,17 @@ function switchToTab(tab: typeof activeTab) {
       }
 
     } else if (cs === 'buy-short') {
-      // Short pozisyon AÇ — "Alındı + Short"
-      // Hisse ödünç alınıp satılıyor, buyPrice = short açılış fiyatı
-      if (lot > 0 && e.buyPrice != null && e.buyPrice > 0) {
-        pos.totalShortCost += lot * e.buyPrice
-        pos.shortLots += lot
-        pos.avgShort = pos.totalShortCost / pos.shortLots
-      } else if (lot > 0) {
-        pos.shortLots += lot
-      }
+  // buy + short = short pozisyon AÇ
+  const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
+  if (lotCount > 0) {
+    if (e.buyPrice != null && e.buyPrice > 0) {
+      pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.buyPrice
+      pos.shortLots += lotCount
+      pos.avgShort = pos.totalShortCost / pos.shortLots
+    } else {
+      pos.shortLots += lotCount
+    }
+  }
 
     } else if (cs === 'sell-short') {
       // Short pozisyon KAPAT — "Satıldı + Short"
@@ -1429,11 +1431,11 @@ function switchToTab(tab: typeof activeTab) {
                     </tr></thead>
                     <tbody>
                       {openLong.map(([t, pos]) => {
-                        const cp = pos.prices?.current
+                        const cp = portfolioPrices[t]?.current || pos.prices?.current
                         const sym = currencySymbol(pos.currency)
-                        // Short için: açılış - güncel fiyat (düşerse kar)
-                        const uPnl = cp && pos.avgShort ? (pos.avgShort - cp) * pos.shortLots : null
-                        const uPct = cp && pos.avgShort ? (pos.avgShort - cp) / pos.avgShort * 100 : null
+                        // Short K/Z: açılış - güncel (düşerse kar)
+                        const uPnl = cp && pos.avgShort > 0 ? (pos.avgShort - cp) * pos.shortLots : null
+                        const uPct = cp && pos.avgShort > 0 ? (pos.avgShort - cp) / pos.avgShort * 100 : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td className="py-3 px-3">
                             <button onClick={() => setTradeModal({
