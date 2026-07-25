@@ -1385,6 +1385,11 @@ function switchToTab(tab: typeof activeTab) {
             if (pos.prices?.current && pos.avgBuy)
               totalUnrealized += convertPnl((pos.prices.current - pos.avgBuy) * pos.longLots, pos.currency)
           }
+          for (const [t, pos] of openShort) {
+            const cp = portfolioPrices[t]?.current || pos.prices?.current
+            if (cp && pos.avgShort > 0)
+              totalUnrealized += convertPnl((pos.avgShort - cp) * pos.shortLots, pos.currency)
+          }
           for (const r of realized) totalRealized += convertPnl(r.pnl, r.currency)
 
           return (
@@ -1433,15 +1438,15 @@ function switchToTab(tab: typeof activeTab) {
                       {openLong.map(([t, pos]) => {
                         const cp = portfolioPrices[t]?.current || pos.prices?.current
                         const sym = currencySymbol(pos.currency)
-                        // Short K/Z: açılış - güncel (düşerse kar)
-                        const uPnl = cp && pos.avgShort > 0 ? (pos.avgShort - cp) * pos.shortLots : null
-                        const uPct = cp && pos.avgShort > 0 ? (pos.avgShort - cp) / pos.avgShort * 100 : null
+                        // Long K/Z: güncel - maliyet
+                        const uPnl = cp && pos.avgBuy > 0 ? (cp - pos.avgBuy) * pos.longLots : null
+                        const uPct = cp && pos.avgBuy > 0 ? (cp - pos.avgBuy) / pos.avgBuy * 100 : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td className="py-3 px-3">
                             <button onClick={() => setTradeModal({
                               ticker: t,
-                              avgBuy: pos.avgShort,
-                              lots: pos.shortLots,
+                              avgBuy: pos.avgBuy,
+                              lots: pos.longLots,
                               currency: pos.currency
                             })}
                               className="font-mono font-medium hover:underline flex items-center gap-1"
@@ -1464,7 +1469,48 @@ function switchToTab(tab: typeof activeTab) {
                   </table>
                 </div>
               )}
-
+              {/* Open Short */}
+              <h3 className="font-bold mb-3 mt-6 flex items-center gap-2">
+                Açık Short <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: 'rgba(96,165,250,0.1)', color: 'var(--blue)' }}>SHORT</span>
+              </h3>
+              {openShort.length === 0 ? (
+                <p className="font-mono text-sm mb-6" style={{ color: 'var(--text3)' }}>Açık short pozisyon yok.</p>
+              ) : (
+                <div className="overflow-x-auto mb-6">
+                  <table className="w-full text-sm">
+                    <thead><tr className="font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--text3)', borderBottom: '1px solid var(--border)' }}>
+                      {['Hisse', 'Lot', 'Short Giriş', 'Güncel', 'Anlık K/Z', 'K/Z %'].map(h => <th key={h} className="text-left py-2 px-3">{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {openShort.map(([t, pos]) => {
+                        const cp = portfolioPrices[t]?.current || pos.prices?.current
+                        const sym = currencySymbol(pos.currency)
+                        // Short K/Z: giriş - güncel (düşerse kar)
+                        const uPnl = cp && pos.avgShort > 0 ? (pos.avgShort - cp) * pos.shortLots : null
+                        const uPct = cp && pos.avgShort > 0 ? (pos.avgShort - cp) / pos.avgShort * 100 : null
+                        return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td className="py-3 px-3">
+                            <button onClick={() => setModalTicker(t)}
+                              className="font-mono font-medium hover:underline flex items-center gap-1"
+                              style={{ color: 'var(--blue)' }}>
+                              {t}
+                            </button>
+                          </td>
+                          <td className="py-3 px-3 font-mono">{pos.shortLots}</td>
+                          <td className="py-3 px-3 font-mono">{sym}{pos.avgShort.toFixed(2)}</td>
+                          <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
+                          <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
+                            {uPnl != null ? (uPnl >= 0 ? '+' : '') + sym + Math.abs(uPnl).toFixed(2) : '—'}
+                          </td>
+                          <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
+                            {uPct != null ? (uPct >= 0 ? '+' : '') + uPct.toFixed(2) + '%' : '—'}
+                          </td>
+                        </tr>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {/* Realized */}
               <h3 className="font-bold mb-3 flex items-center gap-2">
                 Kapatılan İşlemler <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,77,109,0.1)', color: 'var(--red)' }}>GERÇEKLEŞTİ</span>
