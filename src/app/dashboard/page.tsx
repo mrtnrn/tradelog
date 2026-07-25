@@ -119,6 +119,8 @@ function StockModal({ ticker, entries, onClose, onAddEntry, user }: {
   const [sellPrice, setSellPrice] = useState('')
   const [entryDate, setEntryDate] = useState(() => dateKey(new Date()))
   const [saving, setSaving] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<Entry|null>(null)
+  const [editDate, setEditDate] = useState('')
 
   useEffect(() => {
     fetchPrice(ticker).then(pd => {
@@ -347,7 +349,7 @@ function StockModal({ ticker, entries, onClose, onAddEntry, user }: {
 // ── TRADE MODAL (Portföy satış) ─────────────────────────
 
 function TradeModal({ data, onClose, onSubmit, allEntries }: {
-  data: { ticker: string, avgBuy: number, lots: number, currency: string }
+  data: { ticker: string, avgBuy: number, lots: number, currency: string, type?: 'long'|'short' }
   onClose: () => void
   onSubmit: (sellPrice: number, lots: number, date: string, buyPrice: number) => void
   allEntries: AllEntries
@@ -394,7 +396,8 @@ function TradeModal({ data, onClose, onSubmit, allEntries }: {
           style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
           <div>
             <div className="font-mono text-xl font-medium tracking-widest" style={{ color: 'var(--text)' }}>{data.ticker}</div>
-            <div className="font-mono text-xs mt-1" style={{ color: 'var(--text3)' }}>Long Satış İşlemi</div>
+            <div className="font-mono text-xs mt-1" style={{ color: 'var(--text3)' }}>
+            {data.type === 'short' ? 'Short Kapatma İşlemi' : 'Long Satış İşlemi'}
           </div>
           <button onClick={onClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -457,8 +460,8 @@ function TradeModal({ data, onClose, onSubmit, allEntries }: {
               onClick={() => { if (sp && sl && bp) onSubmit(sp, sl, tradeDate, bp) }}
               disabled={!sellPrice || !sellLots || !buyPrice}
               className="w-full py-3 font-bold rounded-lg text-white transition-all disabled:opacity-40"
-              style={{ background: 'var(--red)' }}>
-              💸 Satışı Kaydet
+              style={{ background: data.type === 'short' ? 'var(--blue)' : 'var(--red)' }}>
+              {data.type === 'short' ? '📈 Alışı Kaydet (Short Kapat)' : '💸 Satışı Kaydet'}
             </button>
           </div>
 
@@ -500,6 +503,95 @@ function TradeModal({ data, onClose, onSubmit, allEntries }: {
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EditModal({ entry, date, onClose, onSave }: {
+  entry: Entry
+  date: string
+  onClose: () => void
+  onSave: (updated: Entry, date: string) => Promise<void>
+}) {
+  const [comment, setComment] = useState(entry.comment || '')
+  const [lot, setLot] = useState(entry.lot?.toString() || '')
+  const [buyPrice, setBuyPrice] = useState(entry.buyPrice?.toString() || '')
+  const [sellPrice, setSellPrice] = useState(entry.sellPrice?.toString() || '')
+  const [entryDate, setEntryDate] = useState(date)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    await onSave({
+      ...entry,
+      comment,
+      lot: lot ? parseFloat(lot) : null,
+      buyPrice: buyPrice ? parseFloat(buyPrice) : null,
+      sellPrice: sellPrice ? parseFloat(sellPrice) : null,
+    }, entryDate)
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
+          <div>
+            <div className="font-mono text-xl font-medium tracking-widest" style={{ color: 'var(--text)' }}>{entry.ticker}</div>
+            <div className="font-mono text-xs mt-1" style={{ color: 'var(--text3)' }}>Kaydı Düzenle</div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>✕</button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Tarih</label>
+            <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)}
+              className="w-full rounded-lg px-4 py-2.5 font-mono text-sm outline-none"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+          </div>
+          {entry.lot != null && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Lot</label>
+                <input type="number" value={lot} onChange={e => setLot(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+              </div>
+              <div>
+                <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Alış Fiyatı</label>
+                <input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+              </div>
+              <div>
+                <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Satış Fiyatı</label>
+                <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>Yorum</label>
+            <textarea value={comment} onChange={e => setComment(e.target.value)}
+              className="w-full rounded-lg px-4 py-3 text-sm outline-none resize-y min-h-24"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--text)' }} />
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            className="w-full py-3 font-bold rounded-lg text-black transition-all disabled:opacity-40"
+            style={{ background: 'var(--accent)' }}>
+            {saving ? 'Kaydediliyor…' : '✓ Kaydet'}
+          </button>
         </div>
       </div>
     </div>
@@ -551,7 +643,7 @@ export default function Dashboard() {
   const [tickerLayout, setTickerLayout] = useState<'grid'|'list'>('grid')
 
   // Portföy işlem modalı
-  const [tradeModal, setTradeModal] = useState<{ticker: string, avgBuy: number, lots: number, currency: string}|null>(null)
+  const [tradeModal, setTradeModal] = useState<{ticker: string, avgBuy: number, lots: number, currency: string, type?: 'long'|'short'}|null>(null)
 
   // ── AUTH & LOAD ──────────────────────────────────────
   useEffect(() => {
@@ -947,15 +1039,20 @@ function switchToTab(tab: typeof activeTab) {
     onSubmit={async (sellPrice, lots, tradeDate, buyPrice) => {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return
-  const cs: CS = 'sell-long'
+  const isShort = tradeModal!.type === 'short'
+  const cs: CS = isShort ? 'sell-short' : 'sell-long'
   const entry: Entry = {
     id: Date.now(),
     ticker: tradeModal!.ticker,
-    comment: `Portföy satışı — ${lots} lot @ ${tradeModal!.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`,
-    status: 'sell', direction: 'long', cs,
+    comment: isShort
+      ? `Short kapatma — ${lots} lot @ ${tradeModal!.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`
+      : `Portföy satışı — ${lots} lot @ ${tradeModal!.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`,
+    status: isShort ? 'buy' : 'sell',
+    direction: isShort ? 'short' : 'long',
+    cs,
     lot: lots,
-    buyPrice: buyPrice,
-    sellPrice,
+    buyPrice: isShort ? sellPrice : buyPrice,
+    sellPrice: isShort ? buyPrice : sellPrice,
     time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
     prices: null
   }
@@ -965,12 +1062,45 @@ function switchToTab(tab: typeof activeTab) {
   setAllEntries(updated)
   await supabase.from('trade_entries').insert({
     id: entry.id, date: tradeDate, ticker: entry.ticker, comment: entry.comment,
-    status: 'sell', direction: 'long', cs: 'sell-long',
-    lot: lots, buy_price: buyPrice, sell_price: sellPrice,
+    status: entry.status, direction: entry.direction, cs: entry.cs,
+    lot: lots, buy_price: entry.buyPrice, sell_price: entry.sellPrice,
     time: entry.time, prices: null, user_id: session.user.id
   })
   setTradeModal(null)
 }}
+  />
+)}
+
+{/* Edit Modal */}
+{editingEntry && (
+  <EditModal
+    entry={editingEntry}
+    date={editDate}
+    onClose={() => setEditingEntry(null)}
+    onSave={async (updated, newDate) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      // Eski tarihten kaldır
+      const oldDate = editDate
+      const newAllEntries = { ...allEntries }
+      if (newAllEntries[oldDate]) {
+        newAllEntries[oldDate] = newAllEntries[oldDate].filter(e => e.id !== updated.id)
+        if (newAllEntries[oldDate].length === 0) delete newAllEntries[oldDate]
+      }
+      // Yeni tarihe ekle
+      if (!newAllEntries[newDate]) newAllEntries[newDate] = []
+      newAllEntries[newDate] = [...newAllEntries[newDate], updated].sort((a,b) => a.id - b.id)
+      setAllEntries(newAllEntries)
+      setEditingEntry(null)
+      // Supabase güncelle
+      await supabase.from('trade_entries').update({
+        date: newDate,
+        comment: updated.comment,
+        lot: updated.lot,
+        buy_price: updated.buyPrice,
+        sell_price: updated.sellPrice,
+      }).eq('id', updated.id)
+    }}
   />
 )}
       {modalTicker && (
@@ -1209,8 +1339,7 @@ function switchToTab(tab: typeof activeTab) {
                           </div>
                         )}
                         <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text2)' }}>{e.comment}</p>
-                        {e.prices ? (
-                          <div className="flex gap-4 flex-wrap">
+                          {e.prices && e.cs !== 'sell-long' && e.cs !== 'sell-short' && e.cs !== 'buy-short' ? (                          <div className="flex gap-4 flex-wrap">
                             <div>
                               <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>Güncel</div>
                               <div className="font-mono text-sm">{sym}{e.prices.current.toFixed(2)}</div>
@@ -1221,9 +1350,17 @@ function switchToTab(tab: typeof activeTab) {
                               )}
                             </div>
                             {e.buyPrice && e.prices.current && (() => {
-                              const pnl = e.cs === 'sell-long' && e.sellPrice
-                                ? (e.sellPrice - e.buyPrice!) * (e.lot ?? 1)
-                                : (e.prices!.current - e.buyPrice!) * (e.lot ?? 1)
+                              const pnl = (() => {
+                                if (e.cs === 'sell-long' && e.sellPrice && e.buyPrice)
+                                  return (e.sellPrice - e.buyPrice) * (e.lot ?? 1)
+                                if (e.cs === 'buy-short' && e.buyPrice && e.prices?.current)
+                                  return (e.buyPrice - e.prices.current) * (e.lot ?? 1) // short: giriş - güncel
+                                if (e.cs === 'sell-short' && e.buyPrice && e.sellPrice)
+                                  return (e.buyPrice - e.sellPrice) * (e.lot ?? 1) // short kapatma K/Z
+                                if (e.buyPrice && e.prices?.current)
+                                  return (e.prices.current - e.buyPrice) * (e.lot ?? 1)
+                                return null
+                              })()
                               const isPos = pnl >= 0
                               return (
                                 <div>
@@ -1490,10 +1627,16 @@ function switchToTab(tab: typeof activeTab) {
                         const uPct = cp && pos.avgShort > 0 ? (pos.avgShort - cp) / pos.avgShort * 100 : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td className="py-3 px-3">
-                            <button onClick={() => setModalTicker(t)}
+                           <button onClick={() => setTradeModal({
+                              ticker: t,
+                              avgBuy: pos.avgShort,
+                              lots: pos.shortLots,
+                              currency: pos.currency,
+                              type: 'short'
+                            })}
                               className="font-mono font-medium hover:underline flex items-center gap-1"
                               style={{ color: 'var(--blue)' }}>
-                              {t}
+                              {t} <span className="text-[9px]" style={{ color: 'var(--text3)' }}>↗ kapat</span>
                             </button>
                           </td>
                           <td className="py-3 px-3 font-mono">{pos.shortLots}</td>
