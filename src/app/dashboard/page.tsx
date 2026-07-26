@@ -1026,6 +1026,7 @@ export default function Dashboard() {
     type?: 'long' | 'short'
   } | null>(null)
 
+  
   // Edit modal
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
   const [editDate, setEditDate] = useState('')
@@ -1362,7 +1363,7 @@ export default function Dashboard() {
     else setLivePriceBadge('')
 
     if (status === 'sell' && direction === 'long') {
-      const pos = getPosition(ticker.toUpperCase(), allEntries)
+      const pos = getPosition(ticker.toUpperCase())
       if (pos && pos.longLots > 0 && pos.avgBuy > 0) {
         setAutoBuyPrice(pos.avgBuy)
         setBuyPrice(pos.avgBuy.toFixed(4))
@@ -1401,7 +1402,7 @@ function getPosition(t: string) {
 
 async function signOut() {
   await supabase.auth.signOut()
-  window.location.href = '/'
+  router.push('/')
 }
   const tabs = [
   { id: 'daily', label: '📅 Günlük' },
@@ -1642,7 +1643,7 @@ function switchToTab(tab: typeof activeTab) {
           <div className="flex items-center gap-4">
             {syncing && <span className="text-xs font-mono animate-pulse" style={{ color: 'var(--accent)' }}>⟳ kaydediliyor…</span>}
             <span className="text-xs font-mono hidden sm:block" style={{ color: 'var(--text2)' }}>{user?.user_metadata?.full_name || user?.email?.split('@')[0]}</span>
-            <button onClick={() => window.location.href = '/profile'}
+            <button onClick={() => router.push('/profile')}
               className="px-3 py-2 rounded-lg text-xs font-mono transition-all"
               style={{ border: '1px solid var(--border2)', color: 'var(--text2)' }}>
               Profil
@@ -1852,28 +1853,18 @@ function switchToTab(tab: typeof activeTab) {
                                 </div>
                               )}
                             </div>
-                            {e.buyPrice && e.prices.current && (() => {
-                              const pnl = (() => {
-                                if (e.cs === 'sell-long' && e.sellPrice && e.buyPrice)
-                                  return (e.sellPrice - e.buyPrice) * (e.lot ?? 1)
-                                if (e.cs === 'buy-short' && e.buyPrice && e.prices?.current)
-                                  return (e.buyPrice - e.prices.current) * (e.lot ?? 1) // short: giriş - güncel
-                                if (e.cs === 'sell-short' && e.buyPrice && e.sellPrice)
-                                  return (e.buyPrice - e.sellPrice) * (e.lot ?? 1) // short kapatma K/Z
-                                if (e.buyPrice && e.prices?.current)
-                                  return (e.prices.current - e.buyPrice) * (e.lot ?? 1)
-                                return null
-                              })()
-                              const isPos = pnl >= 0
-                              return (
-                                <div>
-                                  <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>K/Z</div>
-                                  <div className={`font-mono text-sm font-medium ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {isPos ? '+' : ''}{sym}{Math.abs(pnl).toFixed(2)}
-                                  </div>
+                          {e.buyPrice && e.prices.current && (() => {
+                            const pnl = (e.prices.current - e.buyPrice) * (e.lot ?? 1)
+                            const isPos = pnl >= 0
+                            return (
+                              <div>
+                                <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>K/Z</div>
+                                <div className={`font-mono text-sm font-medium ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {isPos ? '+' : ''}{sym}{Math.abs(pnl).toFixed(2)}
                                 </div>
-                              )
-                            })()}
+                              </div>
+                            )
+                          })()}
                           </div>
                         ) : (
                           <div className="font-mono text-xs animate-pulse" style={{ color: 'var(--text3)' }}>fiyat yükleniyor…</div>
@@ -2238,7 +2229,28 @@ function switchToTab(tab: typeof activeTab) {
           </div>
         )}
       </div>
+      {/* Confirm Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setConfirmModal(null)}>
+          <div className="w-full max-w-sm rounded-2xl p-6"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+            <p className="text-sm mb-6" style={{ color: 'var(--text2)' }}>{confirmModal.message}</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmModal(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                style={{ border: '1px solid var(--border2)', color: 'var(--text2)' }}>İptal</button>
+              <button onClick={confirmModal.onConfirm}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-black transition-all"
+                style={{ background: 'var(--accent)' }}>Evet</button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      
       {/* DATE PICKER */}
       {dpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
