@@ -1841,12 +1841,20 @@ function switchToTab(tab: typeof activeTab) {
                           {e.ticker}
                         </button>
                         <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>{SL[e.cs]}</span>
-                        <button 
-                          onClick={() => { setEditingEntry(e); setEditDate(key) }}
-                          className="ml-2 text-[10px] px-2 py-0.5 rounded-md transition-all"
-                          style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-                          ✎ Düzenle
-                        </button>
+                        <div className="flex items-center gap-2 self-start">
+                          <button 
+                            onClick={() => { setEditingEntry(e); setEditDate(key) }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
+                            style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                            ✎
+                          </button>
+                          <button 
+                            onClick={() => deleteEntry(e.id)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
+                            style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                            🗑
+                          </button>
+                        </div>
                         <div className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</div>
                       </div>
                       <div>
