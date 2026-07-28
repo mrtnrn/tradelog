@@ -1828,84 +1828,80 @@ function switchToTab(tab: typeof activeTab) {
             ) : (
               <div className="space-y-3">
                 {entries.map(e => {
-                  const cur = e.prices?.currency || (e.ticker?.endsWith('.IS') ? 'TRY' : 'USD')
-                  const sym = currencySymbol(cur)
+              const cur = e.prices?.currency || (e.ticker?.endsWith('.IS') ? 'TRY' : 'USD')
+              const sym = currencySymbol(cur)
 
-                  return (
-                    <div key={e.id} className="rounded-xl p-5 grid gap-4 transition-all"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', gridTemplateColumns: '88px 1fr auto', borderLeft: `3px solid ${csBorderColor(e.cs)}` }}>
-                      <div className="flex flex-col items-center gap-1.5 pt-0.5">
-                        <button onClick={() => setModalTicker(e.ticker)}
-                          className="font-mono text-base font-medium tracking-widest transition-colors hover:underline"
-                          style={{ color: 'var(--accent)' }}>
-                          {e.ticker}
-                        </button>
-                        <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>{SL[e.cs]}</span>
-                       
-                        </div>
-                        <div className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</div>
-                      <div>
-                        {e.lot && (
-                          <div className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-1 rounded-full mb-2"
-                            style={{ background: 'var(--surface2)', color: 'var(--text3)' }}>
-                            📦 {e.lot} lot{e.buyPrice ? ` · ${sym}${e.buyPrice}` : ''}{e.sellPrice ? ` · ${sym}${e.sellPrice}` : ''}
-                          </div>
-                        )}
-                        <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text2)' }}>{e.comment}</p>
-                        <div className="flex justify-end gap-2 mt-2">
-                            <button 
-                              onClick={() => { setEditingEntry(e); setEditDate(key) }}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
-                              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-                              ✎
-                            </button>
-                            <button 
-                              onClick={() => deleteEntry(e.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
-                              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-                              🗑
-                            </button>
-                          </div>
-                          {e.prices && e.cs !== 'sell-long' && e.cs !== 'sell-short' && e.cs !== 'buy-short' ? (                          <div className="flex gap-4 flex-wrap">
-                            <div>
-                              <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>Güncel</div>
-                              <div className="font-mono text-sm">{sym}{e.prices.current.toFixed(2)}</div>
-                              {e.prices.change != null && (
-                                <div className={`font-mono text-[11px] ${e.prices.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {e.prices.change >= 0 ? '+' : ''}{e.prices.change.toFixed(2)}%
-                                </div>
-                              )}
-                            </div>
-                          {e.buyPrice && e.prices.current && (() => {
-                            const pnl = (e.prices.current - e.buyPrice) * (e.lot ?? 1)
-                            const isPos = pnl >= 0
-                            return (
-                              <div>
-                                <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>K/Z</div>
-                                <div className={`font-mono text-sm font-medium ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {isPos ? '+' : ''}{sym}{Math.abs(pnl).toFixed(2)}
-                                </div>
-                              </div>
-                            )
-                          })()}
-                          </div>
-                        ) : (
-                          <div className="font-mono text-xs animate-pulse" style={{ color: 'var(--text3)' }}>fiyat yükleniyor…</div>
-                        )}
+              return (
+                <div key={e.id} className="rounded-xl p-5 grid gap-4 transition-all"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', gridTemplateColumns: '88px 1fr auto', borderLeft: `3px solid ${csBorderColor(e.cs)}` }}>
+                  
+                  {/* 1. KOLON: Ticker + Badge + Saat */}
+                  <div className="flex flex-col items-center gap-1.5 pt-0.5">
+                    <button onClick={() => setModalTicker(e.ticker)}
+                      className="font-mono text-base font-medium tracking-widest transition-colors hover:underline"
+                      style={{ color: 'var(--accent)' }}>
+                      {e.ticker}
+                    </button>
+                    <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>{SL[e.cs]}</span>
+                    <div className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</div>
+                  </div>
+
+                  {/* 2. KOLON: İçerik */}
+                  <div>
+                    {e.lot && (
+                      <div className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-1 rounded-full mb-2"
+                        style={{ background: 'var(--surface2)', color: 'var(--text3)' }}>
+                        📦 {e.lot} lot{e.buyPrice ? ` · ${sym}${e.buyPrice}` : ''}{e.sellPrice ? ` · ${sym}${e.sellPrice}` : ''}
                       </div>
-                      <button onClick={() => { setEditingEntry(e); setEditDate(key); }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all self-start mr-2"
+                    )}
+                    <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text2)' }}>{e.comment}</p>
+                    {e.prices && e.cs !== 'sell-long' && e.cs !== 'sell-short' && e.cs !== 'buy-short' ? (
+                      <div className="flex gap-4 flex-wrap">
+                        <div>
+                          <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>Güncel</div>
+                          <div className="font-mono text-sm">{sym}{e.prices.current.toFixed(2)}</div>
+                          {e.prices.change != null && (
+                            <div className={`font-mono text-[11px] ${e.prices.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {e.prices.change >= 0 ? '+' : ''}{e.prices.change.toFixed(2)}%
+                            </div>
+                          )}
+                        </div>
+                        {e.buyPrice && e.prices.current && (() => {
+                          const pnl = (e.prices.current - e.buyPrice) * (e.lot ?? 1)
+                          const isPos = pnl >= 0
+                          return (
+                            <div>
+                              <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>K/Z</div>
+                              <div className={`font-mono text-sm font-medium ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {isPos ? '+' : ''}{sym}{Math.abs(pnl).toFixed(2)}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="font-mono text-xs animate-pulse" style={{ color: 'var(--text3)' }}>fiyat yükleniyor…</div>
+                    )}
+                  </div>
+
+                  {/* 3. KOLON: Butonlar (sağ üstte, dikey) */}
+                  <div className="flex flex-col items-center gap-2 self-start">
+                    <button 
+                      onClick={() => { setEditingEntry(e); setEditDate(key) }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
                       style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
                       ✎
-                      </button>
-                      <button onClick={() => deleteEntry(e.id)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all self-start"
-                        style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-                        🗑
-                      </button>
-                    </div>
-                  )
-                })}
+                    </button>
+                    <button 
+                      onClick={() => deleteEntry(e.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
+                      style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
               </div>
             )}
           </div>
