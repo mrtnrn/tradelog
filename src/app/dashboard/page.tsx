@@ -1841,22 +1841,9 @@ function switchToTab(tab: typeof activeTab) {
                           {e.ticker}
                         </button>
                         <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>{SL[e.cs]}</span>
-                        <div className="flex items-center gap-2 self-start">
-                          <button 
-                            onClick={() => { setEditingEntry(e); setEditDate(key) }}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
-                            style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-                            ✎
-                          </button>
-                          <button 
-                            onClick={() => deleteEntry(e.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
-                            style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
-                            🗑
-                          </button>
+                       
                         </div>
                         <div className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</div>
-                      </div>
                       <div>
                         {e.lot && (
                           <div className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-1 rounded-full mb-2"
@@ -1865,6 +1852,20 @@ function switchToTab(tab: typeof activeTab) {
                           </div>
                         )}
                         <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text2)' }}>{e.comment}</p>
+                        <div className="flex justify-end gap-2 mt-2">
+                            <button 
+                              onClick={() => { setEditingEntry(e); setEditDate(key) }}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
+                              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                              ✎
+                            </button>
+                            <button 
+                              onClick={() => deleteEntry(e.id)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all"
+                              style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                              🗑
+                            </button>
+                          </div>
                           {e.prices && e.cs !== 'sell-long' && e.cs !== 'sell-short' && e.cs !== 'buy-short' ? (                          <div className="flex gap-4 flex-wrap">
                             <div>
                               <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>Güncel</div>
