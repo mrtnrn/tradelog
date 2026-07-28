@@ -159,19 +159,15 @@ function csBadgeClass(cs: CS): string {
 }
 
 // ── STOCK MODAL ─────────────────────────────────────────
-function StockModal({
-  ticker,
-  entries,
-  onClose,
-  onAddEntry,
-  user,
-}: {
+function StockModal(props: {
   ticker: string
-  entries: EntryWithDate[]
+  entries: (Entry & { date: string })[]
   onClose: () => void
   onAddEntry: (entry: Partial<Entry>, date: string) => Promise<void>
-  user: UserData | null
+  user: any
+  onEditEntry: (entry: Entry, date: string) => void
 }) {
+  const { ticker, entries, onClose, onAddEntry, user, onEditEntry } = props
   const [currentPrice, setCurrentPrice] = useState<PriceData | null>(null)
   const [activeSection, setActiveSection] = useState<'notes' | 'trade'>('notes')
 
@@ -827,6 +823,14 @@ function EditModal({
   const [entryDate, setEntryDate] = useState(date)
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+  setComment(entry.comment || '')
+  setLot(entry.lot?.toString() || '')
+  setBuyPrice(entry.buyPrice?.toString() || '')
+  setSellPrice(entry.sellPrice?.toString() || '')
+  setEntryDate(date)
+}, [entry, date])
+
   async function handleSave() {
     setSaving(true)
     await onSave(
@@ -1017,6 +1021,10 @@ export default function Dashboard() {
   const [tickerSort, setTickerSort] = useState<'alpha' | 'recent'>('recent')
   const [tickerLayout, setTickerLayout] = useState<'grid' | 'list'>('grid')
 
+  // Edit modal
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
+  const [editDate, setEditDate] = useState('')
+  
   // Portföy işlem modalı
   const [tradeModal, setTradeModal] = useState<{
     ticker: string
@@ -1025,11 +1033,6 @@ export default function Dashboard() {
     currency: string
     type?: 'long' | 'short'
   } | null>(null)
-
-  
-  // Edit modal
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
-  const [editDate, setEditDate] = useState('')
 
   // Confirm modal (alert/confirm yerine)
   const [confirmModal, setConfirmModal] = useState<{
@@ -1607,29 +1610,33 @@ function switchToTab(tab: typeof activeTab) {
     }}
   />
 )}
-      {modalTicker && (
-        <StockModal
-          ticker={modalTicker}
-          entries={getAllEntriesForTicker(modalTicker)}
-          onClose={() => setModalTicker(null)}
-          user={user}
-          onAddEntry={async (entry, date) => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session) return
-            const fullEntry = { ...entry, id: entry.id || Date.now() } as Entry
-            const updated = { ...allEntries }
-            if (!updated[date]) updated[date] = []
-            updated[date] = [...updated[date], fullEntry]
-            setAllEntries(updated)
-            await supabase.from('trade_entries').insert({
-              id: fullEntry.id, date, ticker: fullEntry.ticker, comment: fullEntry.comment,
-              status: fullEntry.status, direction: fullEntry.direction, cs: fullEntry.cs,
-              lot: fullEntry.lot, buy_price: fullEntry.buyPrice, sell_price: fullEntry.sellPrice,
-              time: fullEntry.time, prices: fullEntry.prices, user_id: session.user.id
-            })
-          }}
-       />
-      )}
+              {modalTicker && (
+          <StockModal
+            ticker={modalTicker}
+            entries={getAllEntriesForTicker(modalTicker)}
+            onClose={() => setModalTicker(null)}
+            user={user}
+            onAddEntry={async (entry, date) => {
+              const { data: { session } } = await supabase.auth.getSession()
+              if (!session) return
+              const fullEntry = { ...entry, id: entry.id || Date.now() } as Entry
+              const updated = { ...allEntries }
+              if (!updated[date]) updated[date] = []
+              updated[date] = [...updated[date], fullEntry]
+              setAllEntries(updated)
+              await supabase.from('trade_entries').insert({
+                id: fullEntry.id, date, ticker: fullEntry.ticker, comment: fullEntry.comment,
+                status: fullEntry.status, direction: fullEntry.direction, cs: fullEntry.cs,
+                lot: fullEntry.lot, buy_price: fullEntry.buyPrice, sell_price: fullEntry.sellPrice,
+                time: fullEntry.time, prices: fullEntry.prices, user_id: session.user.id
+              })
+            }}
+            onEditEntry={(entry, date) => {        // ← BUNU EKLE
+              setEditingEntry(entry)
+              setEditDate(date)
+            }}                                   // ← BUNU EKLE
+          />
+        )}
 
       <div className="relative z-10 max-w-[1150px] mx-auto px-6 pb-20">
         {/* HEADER */}
@@ -1833,6 +1840,12 @@ function switchToTab(tab: typeof activeTab) {
                           {e.ticker}
                         </button>
                         <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>{SL[e.cs]}</span>
+                        <button 
+                          onClick={() => onEditEntry(e, e.date)}
+                          className="ml-2 text-[10px] px-2 py-0.5 rounded-md transition-all"
+                          style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                          ✎ Düzenle
+                        </button>
                         <div className="font-mono text-[10px]" style={{ color: 'var(--text3)' }}>{e.time}</div>
                       </div>
                       <div>
@@ -1870,6 +1883,11 @@ function switchToTab(tab: typeof activeTab) {
                           <div className="font-mono text-xs animate-pulse" style={{ color: 'var(--text3)' }}>fiyat yükleniyor…</div>
                         )}
                       </div>
+                      <button onClick={() => { setEditingEntry(e); setEditDate(key); }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all self-start mr-2"
+                      style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
+                      ✎
+                      </button>
                       <button onClick={() => deleteEntry(e.id)}
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all self-start"
                         style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
