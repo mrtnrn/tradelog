@@ -1830,6 +1830,7 @@ function switchToTab(tab: typeof activeTab) {
                 {entries.map(e => {
                   const cur = e.prices?.currency || (e.ticker?.endsWith('.IS') ? 'TRY' : 'USD')
                   const sym = currencySymbol(cur)
+
                   return (
                     <div key={e.id} className="rounded-xl p-5 grid gap-4 transition-all"
                       style={{ background: 'var(--surface)', border: '1px solid var(--border)', gridTemplateColumns: '88px 1fr auto', borderLeft: `3px solid ${csBorderColor(e.cs)}` }}>
@@ -1841,7 +1842,7 @@ function switchToTab(tab: typeof activeTab) {
                         </button>
                         <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}>{SL[e.cs]}</span>
                         <button 
-                          onClick={() => onEditEntry(e, e.date)}
+                          onClick={() => { setEditingEntry(e); setEditDate(key) }}
                           className="ml-2 text-[10px] px-2 py-0.5 rounded-md transition-all"
                           style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}>
                           ✎ Düzenle
