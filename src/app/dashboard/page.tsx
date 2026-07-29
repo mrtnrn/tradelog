@@ -1276,21 +1276,25 @@ export default function Dashboard() {
   }
 
   // ── Revert Trade ─────────────────────────────────────
-  async function revertTrade(entryId: number) {
+ async function revertTrade(entryId: number) {
     setConfirmModal({
       message: 'Bu işlemi geri almak istediğinize emin misiniz?',
       onConfirm: async () => {
         setConfirmModal(null)
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
         if (!session) return
 
         for (const [date, ents] of Object.entries(allEntries)) {
-          const idx = ents.findIndex((e) => e.id === entryId)
+          const idx = ents.findIndex(e => e.id === entryId)
           if (idx !== -1) {
             const entry = ents[idx]
-            if (entry.cs !== 'sell-long' && entry.cs !== 'buy-short') {
+            
+            // ESKİ KAYITLARDA cs OLAMAYABİLİR — HESAPLA
+            const entryCs = entry.cs || (entry.status === 'watch' 
+              ? 'watch' 
+              : `${entry.status}-${entry.direction || 'long'}` as CS)
+            
+            if (entryCs !== 'sell-long' && entryCs !== 'buy-short') {
               setConfirmModal({
                 message: 'Bu işlem türü geri alınamaz.',
                 onConfirm: () => setConfirmModal(null),
@@ -1298,7 +1302,7 @@ export default function Dashboard() {
               return
             }
             const updated = { ...allEntries }
-            updated[date] = updated[date].filter((e) => e.id !== entryId)
+            updated[date] = updated[date].filter(e => e.id !== entryId)
             if (updated[date].length === 0) delete updated[date]
             setAllEntries(updated)
 
@@ -1306,10 +1310,9 @@ export default function Dashboard() {
             return
           }
         }
-      },
+      }
     })
   }
-
   // ── RESTORE ENTRY ─────────────────────────────────────
   async function restoreEntry(id: number) {
     const {
