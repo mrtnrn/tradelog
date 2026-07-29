@@ -1908,113 +1908,185 @@ function switchToTab(tab: typeof activeTab) {
         )}
 
         {/* ── TICKERS TAB ── */}
-        {activeTab === 'tickers' && (
-          <div>
-            <input value={tickerSearch} onChange={e => setTickerSearch(e.target.value.toUpperCase())}
-              className="w-full rounded-xl px-4 py-3 font-mono tracking-widest text-sm outline-none mb-5 transition-all"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
-              placeholder="HİSSE ARA…" />
+       {activeTab === 'tickers' && (
+  <div>
+    <input value={tickerSearch} onChange={e => setTickerSearch(e.target.value.toUpperCase())}
+      className="w-full rounded-xl px-4 py-3 font-mono tracking-widest text-sm outline-none mb-5 transition-all"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+      placeholder="HİSSE ARA…" />
 
-            {(() => {
-              const map: Record<string, (Entry & { date: string })[]> = {}
-              for (const [date, ents] of Object.entries(allEntries)) {
-                for (const e of ents) {
-                  if (!map[e.ticker]) map[e.ticker] = []
-                  map[e.ticker].push({ ...e, date })
-                }
-              }
-              const tickers = Object.keys(map)
-                .filter(t => !tickerSearch || t.includes(tickerSearch))
-                .sort((a, b) => {
-                if (tickerSort === 'alpha') return a.localeCompare(b)
-                // En son yorum tarihine göre
-                const latestA = Math.max(...map[a].map(e => new Date(e.date).getTime()))
-                const latestB = Math.max(...map[b].map(e => new Date(e.date).getTime()))
-                return latestB - latestA
-                })
+    {(() => {
+      const map: Record<string, (Entry & { date: string })[]> = {}
+      for (const [date, ents] of Object.entries(allEntries)) {
+        for (const e of ents) {
+          if (!map[e.ticker]) map[e.ticker] = []
+          map[e.ticker].push({ ...e, date })
+        }
+      }
+      const filtered = Object.keys(map).filter(t => !tickerSearch || t.includes(tickerSearch))
 
-              return (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold">Hisse Takip</h2>
-                    <span className="font-mono text-xs px-3 py-1 rounded-full" style={{ background: 'var(--surface2)', color: 'var(--text2)' }}>{tickers.length} hisse</span>
-                  </div>
-                    {/* Sıralama ve görünüm */}
-<div className="flex items-center justify-between mb-4">
-  <div className="flex gap-2">
-    <button onClick={() => setTickerSort('recent')}
-      className="px-3 py-1.5 rounded-lg text-xs font-mono transition-all"
-      style={tickerSort === 'recent'
-        ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)' }
-        : { border: '1px solid var(--border2)', color: 'var(--text2)' }}>
-      Son Yorum
-    </button>
-    <button onClick={() => setTickerSort('alpha')}
-      className="px-3 py-1.5 rounded-lg text-xs font-mono transition-all"
-      style={tickerSort === 'alpha'
-        ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)' }
-        : { border: '1px solid var(--border2)', color: 'var(--text2)' }}>
-      A→Z
-    </button>
-  </div>
-  <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface2)' }}>
-    <button onClick={() => setTickerLayout('grid')}
-      className="px-3 py-1 rounded-md text-xs transition-all"
-      style={tickerLayout === 'grid'
-        ? { background: 'var(--surface)', color: 'var(--text)' }
-        : { color: 'var(--text2)' }}>⊞ Grid</button>
-    <button onClick={() => setTickerLayout('list')}
-      className="px-3 py-1 rounded-md text-xs transition-all"
-      style={tickerLayout === 'list'
-        ? { background: 'var(--surface)', color: 'var(--text)' }
-        : { color: 'var(--text2)' }}>☰ Liste</button>
-  </div>
-</div>
-                  
-                  <div className={tickerLayout === 'grid'
-                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
-                    : 'flex flex-col gap-2'}>
-                    {tickers.map(t => {
-                      const ents = map[t]
-                      const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
-                      const p = latest.prices
-                      const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
-                      const sym = currencySymbol(cur)
-                      return (
-                        <button key={t} onClick={() => setModalTicker(t)}
-                          className="rounded-xl p-4 text-left transition-all"
-                          style={{
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            display: tickerLayout === 'list' ? 'flex' : 'block',
-                            alignItems: tickerLayout === 'list' ? 'center' : undefined,
-                            gap: tickerLayout === 'list' ? '16px' : undefined,
-                          }}>
-                          <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)', minWidth: tickerLayout === 'list' ? '80px' : undefined }}>{t}</div>
-                          <div className="font-mono text-sm" style={{ flex: tickerLayout === 'list' ? 1 : undefined }}>
-                            {p?.current ? (
-                              <>
-                                {sym}{p.current.toFixed(2)}
-                                {p.change != null && (
-                                  <span className={`text-xs ml-2 ${p.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
-                                  </span>
-                                )}
-                              </>
-                            ) : <span style={{ color: 'var(--text3)', fontSize: '12px' }}>—</span>}
-                          </div>
-                          <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>
-                            {ents.length} yorum · Son: {latest.date}
-                          </div>
-                      </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )
-            })()}
+      return (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">Hisse Takip</h2>
+            <span className="font-mono text-xs px-3 py-1 rounded-full" style={{ background: 'var(--surface2)', color: 'var(--text2)' }}>{filtered.length} hisse</span>
           </div>
-        )}
+
+          {/* Sıralama ve görünüm */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-2">
+              <button onClick={() => setTickerSort('recent')}
+                className="px-3 py-1.5 rounded-lg text-xs font-mono transition-all"
+                style={tickerSort === 'recent'
+                  ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)' }
+                  : { border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                Son Yorum
+              </button>
+              <button onClick={() => setTickerSort('alpha')}
+                className="px-3 py-1.5 rounded-lg text-xs font-mono transition-all"
+                style={tickerSort === 'alpha'
+                  ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)' }
+                  : { border: '1px solid var(--border2)', color: 'var(--text2)' }}>
+                A→Z
+              </button>
+            </div>
+            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface2)' }}>
+              <button onClick={() => setTickerLayout('grid')}
+                className="px-3 py-1 rounded-md text-xs transition-all"
+                style={tickerLayout === 'grid'
+                  ? { background: 'var(--surface)', color: 'var(--text)' }
+                  : { color: 'var(--text2)' }}>⊞ Grid</button>
+              <button onClick={() => setTickerLayout('list')}
+                className="px-3 py-1 rounded-md text-xs transition-all"
+                style={tickerLayout === 'list'
+                  ? { background: 'var(--surface)', color: 'var(--text)' }
+                  : { color: 'var(--text2)' }}>☰ Liste</button>
+            </div>
+          </div>
+
+          {/* ── ALFABETİK: Grid/Liste ── */}
+          {tickerSort === 'alpha' && (
+            <div className={tickerLayout === 'grid'
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+              : 'flex flex-col gap-2'}>
+              {filtered.sort((a, b) => a.localeCompare(b)).map(t => {
+                const ents = map[t]
+                const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
+                const p = latest.prices
+                const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
+                const sym = currencySymbol(cur)
+                return (
+                  <button key={t} onClick={() => setModalTicker(t)}
+                    className="rounded-xl p-4 text-left transition-all"
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      display: tickerLayout === 'list' ? 'flex' : 'block',
+                      alignItems: tickerLayout === 'list' ? 'center' : undefined,
+                      gap: tickerLayout === 'list' ? '16px' : undefined,
+                    }}>
+                    <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)', minWidth: tickerLayout === 'list' ? '80px' : undefined }}>{t}</div>
+                    <div className="font-mono text-sm" style={{ flex: tickerLayout === 'list' ? 1 : undefined }}>
+                      {p?.current ? (
+                        <>
+                          {sym}{p.current.toFixed(2)}
+                          {p.change != null && (
+                            <span className={`text-xs ml-2 ${p.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
+                            </span>
+                          )}
+                        </>
+                      ) : <span style={{ color: 'var(--text3)', fontSize: '12px' }}>—</span>}
+                    </div>
+                    <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>
+                      {ents.length} yorum
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── SON YORUM: Tarih başlıkları altında ── */}
+          {tickerSort === 'recent' && (() => {
+            // Her hissenin son yorum tarihini bul
+            const latestDates: Record<string, string> = {}
+            for (const t of filtered) {
+              const latest = [...map[t]].sort((a, b) => b.date.localeCompare(a.date))[0]
+              latestDates[t] = latest.date
+            }
+
+            // Benzersiz tarihleri en yeniden en eskiye sırala
+            const dates = [...new Set(Object.values(latestDates))].sort((a, b) => b.localeCompare(a))
+
+            return (
+              <div className="space-y-6">
+                {dates.map(date => {
+                  const tickersForDate = filtered
+                    .filter(t => latestDates[t] === date)
+                    .sort((a, b) => {
+                      // Aynı gün içinde son yorum saatine göre (varsa)
+                      const entA = map[a].find(e => e.date === date)
+                      const entB = map[b].find(e => e.date === date)
+                      if (entA?.time && entB?.time) return entB.time.localeCompare(entA.time)
+                      return a.localeCompare(b)
+                    })
+
+                  return (
+                    <div key={date}>
+                      <div className="font-mono text-xs uppercase tracking-widest mb-3 px-1" style={{ color: 'var(--text3)' }}>
+                        {formatDateTR(new Date(date))}
+                      </div>
+                      <div className={tickerLayout === 'grid'
+                        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+                        : 'flex flex-col gap-2'}>
+                        {tickersForDate.map(t => {
+                          const ents = map[t]
+                          const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
+                          const p = latest.prices
+                          const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
+                          const sym = currencySymbol(cur)
+                          return (
+                            <button key={t} onClick={() => setModalTicker(t)}
+                              className="rounded-xl p-4 text-left transition-all"
+                              style={{
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                display: tickerLayout === 'list' ? 'flex' : 'block',
+                                alignItems: tickerLayout === 'list' ? 'center' : undefined,
+                                gap: tickerLayout === 'list' ? '16px' : undefined,
+                              }}>
+                              <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)', minWidth: tickerLayout === 'list' ? '80px' : undefined }}>{t}</div>
+                              <div className="font-mono text-sm" style={{ flex: tickerLayout === 'list' ? 1 : undefined }}>
+                                {p?.current ? (
+                                  <>
+                                    {sym}{p.current.toFixed(2)}
+                                    {p.change != null && (
+                                      <span className={`text-xs ml-2 ${p.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
+                                      </span>
+                                    )}
+                                  </>
+                                ) : <span style={{ color: 'var(--text3)', fontSize: '12px' }}>—</span>}
+                              </div>
+                              <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>
+                                {ents.length} yorum
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </>
+      )
+    })()}
+  </div>
+)}
 
         {/* ── PORTFOLIO TAB ── */}
         {activeTab === 'portfolio' && (() => {
@@ -2116,10 +2188,10 @@ function switchToTab(tab: typeof activeTab) {
                         <td className="py-3 px-3 font-mono">{sym}{pos.avgBuy.toFixed(2)}</td>
                         <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
                         <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPnl != null ? (uPnl >= 0 ? '+' : '') + sym + Math.abs(uPnl).toFixed(2) : '—'}
+                          {uPnl != null ? (uPnl >= 0 ? '+' : '-') + sym + Math.abs(uPnl).toFixed(2) : '—'}
                         </td>
                         <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPct != null ? (uPct >= 0 ? '+' : '') + uPct.toFixed(2) + '%' : '—'}
+                          {uPct != null ? (uPct >= 0 ? '+' : '-') + uPct.toFixed(2) + '%' : '—'}
                         </td>
                       </tr>
                     })}
@@ -2167,10 +2239,10 @@ function switchToTab(tab: typeof activeTab) {
                         <td className="py-3 px-3 font-mono">{sym}{pos.avgShort.toFixed(2)}</td>
                         <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
                         <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPnl != null ? (uPnl >= 0 ? '+' : '') + sym + Math.abs(uPnl).toFixed(2) : '—'}
+                          {uPnl != null ? (uPnl >= 0 ? '+' : '-') + sym + Math.abs(uPnl).toFixed(2) : '—'}
                         </td>
                         <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPct != null ? (uPct >= 0 ? '+' : '') + uPct.toFixed(2) + '%' : '—'}
+                          {uPct != null ? (uPct >= 0 ? '+' : '-') + uPct.toFixed(2) + '%' : '—'}
                         </td>
                       </tr>
                     })}
