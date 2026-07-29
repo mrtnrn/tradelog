@@ -2066,9 +2066,9 @@ function switchToTab(tab: typeof activeTab) {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
                 {[
                   { label: 'Açık Pozisyon', value: String(openLong.length + openShort.length), color: 'var(--text)' },
-                  { label: 'Anlık K/Z', value: `${totalUnrealized >= 0 ? '+' : ''}${pfSym}${Math.abs(totalUnrealized).toFixed(2)}`, color: totalUnrealized >= 0 ? 'var(--accent)' : 'var(--red)' },
-                  { label: 'Gerçekleşen K/Z', value: `${totalRealized >= 0 ? '+' : ''}${pfSym}${Math.abs(totalRealized).toFixed(2)}`, color: totalRealized >= 0 ? 'var(--accent)' : 'var(--red)' },
-                  { label: 'Toplam K/Z', value: `${(totalUnrealized + totalRealized) >= 0 ? '+' : ''}${pfSym}${Math.abs(totalUnrealized + totalRealized).toFixed(2)}`, color: (totalUnrealized + totalRealized) >= 0 ? 'var(--accent)' : 'var(--red)' },
+                  { label: 'Anlık K/Z', value: `${totalUnrealized >= 0 ? '+' : '-'}${pfSym}${Math.abs(totalUnrealized).toFixed(2)}`, color: totalUnrealized >= 0 ? 'var(--accent)' : 'var(--red)' },
+                  { label: 'Gerçekleşen K/Z', value: `${totalRealized >= 0 ? '+' : '-'}${pfSym}${Math.abs(totalRealized).toFixed(2)}`, color: totalRealized >= 0 ? 'var(--accent)' : 'var(--red)' },
+                  { label: 'Toplam K/Z', value: `${(totalUnrealized + totalRealized) >= 0 ? '+' : '-'}${pfSym}${Math.abs(totalUnrealized + totalRealized).toFixed(2)}`, color: (totalUnrealized + totalRealized) >= 0 ? 'var(--accent)' : 'var(--red)' },
                 ].map(s => (
                   <div key={s.label} className="rounded-xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--text3)' }}>{s.label}</div>
