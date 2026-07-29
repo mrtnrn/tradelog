@@ -2191,7 +2191,7 @@ function switchToTab(tab: typeof activeTab) {
                           {uPnl != null ? (uPnl >= 0 ? '+' : '-') + sym + Math.abs(uPnl).toFixed(2) : '—'}
                         </td>
                         <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPct != null ? (uPct >= 0 ? '+' : '-') + uPct.toFixed(2) + '%' : '—'}
+                          {uPct != null ? (uPct >= 0 ? '+' : '-') + Math.abs(uPct).toFixed(2) + '%' : '—'}
                         </td>
                       </tr>
                     })}
@@ -2242,7 +2242,7 @@ function switchToTab(tab: typeof activeTab) {
                           {uPnl != null ? (uPnl >= 0 ? '+' : '-') + sym + Math.abs(uPnl).toFixed(2) : '—'}
                         </td>
                         <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPct != null ? (uPct >= 0 ? '+' : '-') + uPct.toFixed(2) + '%' : '—'}
+                          {uPct != null ? (uPct >= 0 ? '+' : '-') + Math.abs(uPct).toFixed(2) + '%' : '—'}
                         </td>
                       </tr>
                     })}
