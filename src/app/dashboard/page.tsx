@@ -2093,25 +2093,14 @@ function switchToTab(tab: typeof activeTab) {
                       {openLong.map(([t, pos]) => {
                         const cp = portfolioPrices[t]?.current || pos.prices?.current
                         const sym = currencySymbol(pos.currency)
-                        // Long K/Z: güncel - maliyet
-                        const uPnl = cp && pos.avgBuy > 0 ? (cp - pos.avgBuy) * pos.longLots : null
-                        const uPct = cp && pos.avgBuy > 0 ? (cp - pos.avgBuy) / pos.avgBuy * 100 : null
+                        const uPnl = (typeof cp === 'number' && !isNaN(cp) && pos.avgBuy > 0) 
+                          ? (cp - pos.avgBuy) * pos.longLots 
+                          : null
+                        const uPct = (typeof cp === 'number' && !isNaN(cp) && pos.avgBuy > 0) 
+                          ? ((cp - pos.avgBuy) / pos.avgBuy) * 100 
+                          : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td className="py-3 px-3">
-                            <button onClick={() => setTradeModal({
-                              ticker: t,
-                              avgBuy: pos.avgBuy,
-                              lots: pos.longLots,
-                              currency: pos.currency
-                            })}
-                              className="font-mono font-medium hover:underline flex items-center gap-1"
-                              style={{ color: 'var(--accent)' }}>
-                              {t} <span className="text-[9px]" style={{ color: 'var(--text3)' }}>↗ sat</span>
-                            </button>
-                          </td>
-                          <td className="py-3 px-3 font-mono">{pos.longLots}</td>
-                          <td className="py-3 px-3 font-mono">{sym}{pos.avgBuy.toFixed(2)}</td>
-                          <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
+                          ...
                           <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
                             {uPnl != null ? (uPnl >= 0 ? '+' : '') + sym + Math.abs(uPnl).toFixed(2) : '—'}
                           </td>
@@ -2140,26 +2129,14 @@ function switchToTab(tab: typeof activeTab) {
                       {openShort.map(([t, pos]) => {
                         const cp = portfolioPrices[t]?.current || pos.prices?.current
                         const sym = currencySymbol(pos.currency)
-                        // Short K/Z: giriş - güncel (düşerse kar)
-                        const uPnl = cp && pos.avgShort > 0 ? (pos.avgShort - cp) * pos.shortLots : null
-                        const uPct = cp && pos.avgShort > 0 ? (pos.avgShort - cp) / pos.avgShort * 100 : null
+                        const uPnl = (typeof cp === 'number' && !isNaN(cp) && pos.avgShort > 0) 
+                          ? (pos.avgShort - cp) * pos.shortLots 
+                          : null
+                        const uPct = (typeof cp === 'number' && !isNaN(cp) && pos.avgShort > 0) 
+                          ? ((pos.avgShort - cp) / pos.avgShort) * 100 
+                          : null
                         return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td className="py-3 px-3">
-                           <button onClick={() => setTradeModal({
-                              ticker: t,
-                              avgBuy: pos.avgShort,
-                              lots: pos.shortLots,
-                              currency: pos.currency,
-                              type: 'short'
-                            })}
-                              className="font-mono font-medium hover:underline flex items-center gap-1"
-                              style={{ color: 'var(--blue)' }}>
-                              {t} <span className="text-[9px]" style={{ color: 'var(--text3)' }}>↗ kapat</span>
-                            </button>
-                          </td>
-                          <td className="py-3 px-3 font-mono">{pos.shortLots}</td>
-                          <td className="py-3 px-3 font-mono">{sym}{pos.avgShort.toFixed(2)}</td>
-                          <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
+                          ...
                           <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
                             {uPnl != null ? (uPnl >= 0 ? '+' : '') + sym + Math.abs(uPnl).toFixed(2) : '—'}
                           </td>
