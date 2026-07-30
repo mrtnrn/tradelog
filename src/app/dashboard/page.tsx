@@ -1289,10 +1289,8 @@ export default function Dashboard() {
           if (idx !== -1) {
             const entry = ents[idx]
             
-            // ESKİ KAYITLARDA cs OLAMAYABİLİR — HESAPLA
-            const entryCs = entry.cs || (entry.status === 'watch' 
-              ? 'watch' 
-              : `${entry.status}-${entry.direction || 'long'}` as CS)
+            // entry.cs'yi KULLANMA — her zaman status+direction'dan hesapla
+            const entryCs = `${entry.status}-${entry.direction || 'long'}` as CS
             
             if (entryCs !== 'sell-long' && entryCs !== 'buy-short') {
               setConfirmModal({
@@ -1312,6 +1310,7 @@ export default function Dashboard() {
         }
       }
     })
+  
   }
   // ── RESTORE ENTRY ─────────────────────────────────────
   async function restoreEntry(id: number) {
