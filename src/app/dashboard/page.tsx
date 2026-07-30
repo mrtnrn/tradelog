@@ -1507,9 +1507,9 @@ function switchToTab(tab: typeof activeTab) {
       // sellPrice = geri alış (kapanış) fiyatı
       const lots = Math.min(lot, pos.shortLots || 0)
       if (lots > 0) {
-        const openPrice = pos.avgShort // açılış fiyatı
-        const closePrice = e.sellPrice != null && e.sellPrice > 0 ? e.sellPrice : null
-        if (openPrice > 0 && closePrice != null) {
+        const openPrice = pos.avgShort
+        const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
+        if (closePrice != null) {
           // Short K/Z: açılış - kapanış (düşerse kar)
           realized.push({
             id: e.id, ticker: t, lots,
