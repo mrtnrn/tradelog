@@ -533,6 +533,9 @@ function StockModal(props: {
   )
 }
 
+// Ensure file ends with a closing brace
+
+
 // ── TRADE MODAL (Portföy satış) ─────────────────────────
 function TradeModal({
   data,
@@ -1040,6 +1043,89 @@ export default function Dashboard() {
     onConfirm: () => void
   } | null>(null)
 
+  const portfolioData = useMemo(() => {
+  const allFlat: (Entry & { date: string })[] = []
+  for (const [date, ents] of Object.entries(allEntries)) {
+    for (const e of ents) allFlat.push({ ...e, date })
+  }
+  allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+
+  const positions: Record<string, any> = {}
+  const realized: any[] = []
+
+  for (const e of allFlat) {
+    const t = e.ticker.trim()
+    const cur = e.prices?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
+
+    if (!positions[t]) {
+      positions[t] = {
+        longLots: 0, avgBuy: 0, totalCost: 0,
+        shortLots: 0, avgShort: 0, totalShortCost: 0,
+        currency: cur, prices: e.prices
+      }
+    }
+    const pos = positions[t]
+    if (e.prices) { pos.prices = e.prices; pos.currency = e.prices.currency }
+
+    const cs = e.cs || (e.status === 'watch' ? 'watch' : `${e.status}-${e.direction || 'long'}` as CS)
+    const lot = e.lot != null && e.lot > 0 ? e.lot : 0
+
+    if (cs === 'buy-long') {
+      if (lot > 0 && e.buyPrice != null && e.buyPrice > 0) {
+        pos.totalCost += lot * e.buyPrice
+        pos.longLots += lot
+        pos.avgBuy = pos.totalCost / pos.longLots
+      } else if (lot > 0) pos.longLots += lot
+    } else if (cs === 'sell-long') {
+      const lots = Math.min(lot, pos.longLots || 0)
+      if (lots > 0) {
+        const cost = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : pos.avgBuy
+        if (cost > 0 && e.sellPrice != null && e.sellPrice > 0) {
+          realized.push({
+            id: e.id, ticker: t, lots,
+            pnl: (e.sellPrice - cost) * lots,
+            pct: ((e.sellPrice - cost) / cost) * 100,
+            type: 'long', currency: pos.currency,
+            sym: currencySymbol(pos.currency),
+            buyPrice: cost, sellPrice: e.sellPrice, date: e.date
+          })
+        }
+        pos.longLots = Math.max(0, pos.longLots - lots)
+        pos.totalCost = pos.longLots * pos.avgBuy
+        if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
+      }
+    } else if (cs === 'buy-short') {
+      const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
+      if (lotCount > 0 && e.buyPrice != null && e.buyPrice > 0) {
+        pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.buyPrice
+        pos.shortLots += lotCount
+        pos.avgShort = pos.totalShortCost / pos.shortLots
+      } else if (lotCount > 0) pos.shortLots += lotCount
+    } else if (cs === 'sell-short') {
+      const lots = Math.min(lot, pos.shortLots || 0)
+      if (lots > 0) {
+        const openPrice = pos.avgShort
+        const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
+        if (openPrice > 0 && closePrice != null) {
+          realized.push({
+            id: e.id, ticker: t, lots,
+            pnl: (openPrice - closePrice) * lots,
+            pct: ((openPrice - closePrice) / openPrice) * 100,
+            type: 'short', currency: pos.currency,
+            sym: currencySymbol(pos.currency),
+            buyPrice: openPrice, sellPrice: closePrice, date: e.date
+          })
+        }
+        pos.shortLots = Math.max(0, pos.shortLots - lots)
+        pos.totalShortCost = pos.shortLots * pos.avgShort
+        if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
+      }
+    }
+  }
+
+  return { positions, realized }
+}, [allEntries])
+
   // ── AUTH & LOAD ──────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1526,7 +1612,7 @@ function switchToTab(tab: typeof activeTab) {
     }
 
   return { positions, realized }
-}
+}}
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
@@ -2090,21 +2176,20 @@ function switchToTab(tab: typeof activeTab) {
 
         {/* ── PORTFOLIO TAB ── */}
         {activeTab === 'portfolio' && (() => {
-          const { positions, realized } = buildPortfolio()
+          const { positions, realized } = portfolioData
           const openLong = Object.entries(positions).filter(([, p]) => p.longLots > 0)
           const openShort = Object.entries(positions).filter(([, p]) => p.shortLots > 0)
+          const convertPnl = (pnl: number, cur: string) => {
+            if (cur === pfCurrency) return pnl
+            if (cur === 'USD' && pfCurrency === 'TRY' && usdTryRate) return pnl * usdTryRate
+            if (cur === 'TRY' && pfCurrency === 'USD' && usdTryRate) return pnl / usdTryRate
+            return pnl
+          }
           for (const [t, pos] of Object.entries(positions)) {
             if (portfolioPrices[t]) {
               pos.prices = portfolioPrices[t]
               pos.currency = portfolioPrices[t].currency
             }
-          }
-
-          function convertPnl(pnl: number, cur: string) {
-            if (cur === pfCurrency) return pnl
-            if (cur === 'USD' && pfCurrency === 'TRY' && usdTryRate) return pnl * usdTryRate
-            if (cur === 'TRY' && pfCurrency === 'USD' && usdTryRate) return pnl / usdTryRate
-            return pnl
           }
 
           function convertAmount(value: number, cur: string) {
@@ -2126,7 +2211,7 @@ function switchToTab(tab: typeof activeTab) {
               totalUnrealized += convertPnl((pos.avgShort - cp) * pos.shortLots, pos.currency)
           }
           for (const r of realized) totalRealized += convertPnl(r.pnl, r.currency)
-
+          
           return (
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -2346,26 +2431,7 @@ function switchToTab(tab: typeof activeTab) {
           </div>
         )}
       </div>
-      {/* Confirm Modal */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setConfirmModal(null)}>
-          <div className="w-full max-w-sm rounded-2xl p-6"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
-            <p className="text-sm mb-6" style={{ color: 'var(--text2)' }}>{confirmModal.message}</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-                style={{ border: '1px solid var(--border2)', color: 'var(--text2)' }}>İptal</button>
-              <button onClick={confirmModal.onConfirm}
-                className="px-4 py-2 rounded-lg text-sm font-bold text-black transition-all"
-                style={{ background: 'var(--accent)' }}>Evet</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* End of modals */}
 
       
       {/* DATE PICKER */}
@@ -2420,6 +2486,27 @@ function switchToTab(tab: typeof activeTab) {
           </div>
         </div>
       )}
+
+      {/* Confirm Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setConfirmModal(null)}>
+          <div className="w-full max-w-sm rounded-2xl p-6"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+            <p className="text-sm mb-6" style={{ color: 'var(--text2)' }}>{confirmModal.message}</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmModal(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                style={{ border: '1px solid var(--border2)', color: 'var(--text2)' }}>İptal</button>
+              <button onClick={confirmModal.onConfirm}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-black transition-all"
+                style={{ background: 'var(--accent)' }}>Evet</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+}   
