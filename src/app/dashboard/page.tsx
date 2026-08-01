@@ -1013,7 +1013,8 @@ export default function Dashboard() {
   const [pfCurrency, setPfCurrency] = useState<Currency>('TRY')
   const [usdTryRate, setUsdTryRate] = useState<number | null>(null)
   const [portfolioPrices, setPortfolioPrices] = useState<Record<string, PriceData>>({})
-
+  const [tickerPrices, setTickerPrices] = useState<Record<string, PriceData>>({})
+  
   // Date picker
   const [dpOpen, setDpOpen] = useState(false)
   const [dpYear, setDpYear] = useState(new Date().getFullYear())
@@ -1138,6 +1139,21 @@ export default function Dashboard() {
       fetchUSDTRY()
     })
   }, [supabase, router])
+
+  // Hisse Takip fiyatlarını çek
+useEffect(() => {
+  if (activeTab !== 'tickers') return
+  const allTickers = new Set<string>()
+  for (const ents of Object.values(allEntries)) {
+    for (const e of ents) allTickers.add(e.ticker.trim())
+  }
+  Promise.all(
+    [...allTickers].map(async (t) => {
+      const pd = await fetchPrice(t)
+      if (pd) setTickerPrices(prev => ({ ...prev, [t]: pd }))
+    })
+  )
+}, [activeTab, allEntries])
 
   async function refreshPortfolioPrices(data: AllEntries) {
     const tickers = new Set<string>()
@@ -2060,7 +2076,7 @@ function switchToTab(tab: typeof activeTab) {
               {filtered.sort((a, b) => a.localeCompare(b)).map(t => {
                 const ents = map[t]
                 const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
-                const p = latest.prices
+                const p = latest.prices || tickerPrices[t]
                 const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
                 const sym = currencySymbol(cur)
                 return (
@@ -2101,7 +2117,7 @@ function switchToTab(tab: typeof activeTab) {
             const latestDates: Record<string, string> = {}
             for (const t of filtered) {
               const latest = [...map[t]].sort((a, b) => b.date.localeCompare(a.date))[0]
-              latestDates[t] = latest.date
+              const p = latest.prices || tickerPrices[t]
             }
 
             // Benzersiz tarihleri en yeniden en eskiye sırala
