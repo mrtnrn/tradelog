@@ -39,9 +39,32 @@ export async function GET(request: NextRequest) {
 
   try {
     const upper = ticker.toUpperCase()
+    if (ticker === 'USDTRY') {
+  try {
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
+    const data = await res.json()
+    return NextResponse.json({ 
+      current: data.rates.TRY, 
+      currency: 'TRY',
+      change: null,
+      prevClose: null,
+      close: null,
+      resolvedSymbol: 'USDTRY'
+    })
+  } catch {
+    return NextResponse.json({ 
+      current: 34.5, 
+      currency: 'TRY',
+      change: null,
+      prevClose: null,
+      close: null,
+      resolvedSymbol: 'USDTRY'
+    })
+  }
+}
     const clean = upper.replace('.IS', '')
 
-    // 1. Finnhub US hissesi (direkt)
+    // 1. Finnhub US hissesi (direkt) 
     if (!upper.includes('.')) {
       const pd = await fetchFinnhub(upper)
       if (pd) return NextResponse.json(pd)

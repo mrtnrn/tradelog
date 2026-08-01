@@ -1164,14 +1164,16 @@ export default function Dashboard() {
   }
 
   async function fetchUSDTRY() {
-    try {
-      const res = await fetch('/api/price?ticker=USDTRY')
-      const q = await res.json()
-      if (q.current) setUsdTryRate(q.current)
-    } catch {
-      // silently fail
-    }
+  try {
+    const res = await fetch('/api/price?ticker=USDTRY')
+    if (!res.ok) throw new Error('USDTRY API 404')
+    const q = await res.json()
+    if (q.current) setUsdTryRate(q.current)
+    else setUsdTryRate(34.5)
+  } catch {
+    setUsdTryRate(34.5)
   }
+}
 
   async function loadData(userId: string) {
     setLoading(true)
@@ -2176,6 +2178,9 @@ function switchToTab(tab: typeof activeTab) {
 
         {/* ── PORTFOLIO TAB ── */}
         {activeTab === 'portfolio' && (() => {
+          console.log('usdTryRate:', usdTryRate)
+          console.log('portfolioPrices:', portfolioPrices)
+          console.log('pfCurrency:', pfCurrency)
           const { positions, realized } = portfolioData
           const openLong = Object.entries(positions).filter(([, p]) => p.longLots > 0)
           const openShort = Object.entries(positions).filter(([, p]) => p.shortLots > 0)
