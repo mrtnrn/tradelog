@@ -1394,10 +1394,10 @@ function getPosition(t: string) {
     } else if (cs === 'sell-long' && e.lot) {
       longLots = Math.max(0, longLots - e.lot)
       if (longLots === 0) avgBuy = 0
-    } else if (cs === 'buy-short' && e.lot && e.buyPrice) {
+    } else if (cs === 'sell-short' && e.lot && e.buyPrice) {
       const total = shortLots * avgShort + e.lot * e.buyPrice
       shortLots += e.lot; avgShort = total / shortLots
-    } else if (cs === 'sell-short' && e.lot) {
+    } else if (cs === 'buy-short' && e.lot) {
       shortLots = Math.max(0, shortLots - e.lot)
       if (shortLots === 0) avgShort = 0
     }
@@ -1489,8 +1489,8 @@ function switchToTab(tab: typeof activeTab) {
         if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
       }
 
-    } else if (cs === 'buy-short') {
-  // buy + short = short pozisyon AÇ
+  } else if (cs === 'sell-short') {
+  // sell + short = short pozisyon AÇ
   const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
   if (lotCount > 0) {
     if (e.buyPrice != null && e.buyPrice > 0) {
@@ -1502,9 +1502,8 @@ function switchToTab(tab: typeof activeTab) {
     }
   }
 
-    } else if (cs === 'sell-short') {
-      // Short pozisyon KAPAT — "Satıldı + Short"
-      // sellPrice = geri alış (kapanış) fiyatı
+    } else if (cs === 'buy-short') {
+      // Short pozisyon KAPAT — geri alış
       const lots = Math.min(lot, pos.shortLots || 0)
       if (lots > 0) {
         const openPrice = pos.avgShort
@@ -1525,7 +1524,6 @@ function switchToTab(tab: typeof activeTab) {
         if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
       }
     }
-  }
 
   return { positions, realized }
 }
@@ -2108,6 +2106,14 @@ function switchToTab(tab: typeof activeTab) {
             if (cur === 'TRY' && pfCurrency === 'USD' && usdTryRate) return pnl / usdTryRate
             return pnl
           }
+
+          function convertAmount(value: number, cur: string) {
+            if (value == null || isNaN(value)) return value
+            if (cur === pfCurrency) return value
+            if (cur === 'USD' && pfCurrency === 'TRY' && usdTryRate) return value * usdTryRate
+            if (cur === 'TRY' && pfCurrency === 'USD' && usdTryRate) return value / usdTryRate
+            return value
+          }
           const pfSym = pfCurrency === 'TRY' ? '₺' : '$'
           let totalUnrealized = 0, totalRealized = 0
           for (const [, pos] of openLong) {
@@ -2164,15 +2170,17 @@ function switchToTab(tab: typeof activeTab) {
                       {['Hisse', 'Lot', 'Ort. Maliyet', 'Güncel', 'Anlık K/Z', 'K/Z %'].map(h => <th key={h} className="text-left py-2 px-3">{h}</th>)}
                     </tr></thead>
                     <tbody>
-                      {openLong.map(([t, pos]) => {
+                     {openLong.map(([t, pos]) => {
                       const cp = portfolioPrices[t]?.current || pos.prices?.current
-                      const sym = currencySymbol(pos.currency)
-                      const uPnl = (typeof cp === 'number' && !isNaN(cp) && pos.avgBuy > 0) 
+                      const uPnlNative = (typeof cp === 'number' && !isNaN(cp) && pos.avgBuy > 0) 
                         ? (cp - pos.avgBuy) * pos.longLots 
                         : null
                       const uPct = (typeof cp === 'number' && !isNaN(cp) && pos.avgBuy > 0) 
                         ? ((cp - pos.avgBuy) / pos.avgBuy) * 100 
                         : null
+                      const uPnl = uPnlNative != null ? convertAmount(uPnlNative, pos.currency) : null
+                      const avgBuyDisp = convertAmount(pos.avgBuy, pos.currency)
+                      const cpDisp = typeof cp === 'number' && !isNaN(cp) ? convertAmount(cp, pos.currency) : null
                       return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td className="py-3 px-3">
                           <button onClick={() => setTradeModal({
@@ -2187,10 +2195,10 @@ function switchToTab(tab: typeof activeTab) {
                           </button>
                         </td>
                         <td className="py-3 px-3 font-mono">{pos.longLots}</td>
-                        <td className="py-3 px-3 font-mono">{sym}{pos.avgBuy.toFixed(2)}</td>
-                        <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
+                        <td className="py-3 px-3 font-mono">{pfSym}{avgBuyDisp.toFixed(2)}</td>
+                        <td className="py-3 px-3 font-mono">{cpDisp != null ? pfSym + cpDisp.toFixed(2) : '—'}</td>
                         <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPnl != null ? (uPnl >= 0 ? '+' : '-') + sym + Math.abs(uPnl).toFixed(2) : '—'}
+                          {uPnl != null ? (uPnl >= 0 ? '+' : '-') + pfSym + Math.abs(uPnl).toFixed(2) : '—'}
                         </td>
                         <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
                           {uPct != null ? (uPct >= 0 ? '+' : '-') + Math.abs(uPct).toFixed(2) + '%' : '—'}
@@ -2216,13 +2224,15 @@ function switchToTab(tab: typeof activeTab) {
                     <tbody>
                       {openShort.map(([t, pos]) => {
                       const cp = portfolioPrices[t]?.current || pos.prices?.current
-                      const sym = currencySymbol(pos.currency)
-                      const uPnl = (typeof cp === 'number' && !isNaN(cp) && pos.avgShort > 0) 
+                      const uPnlNative = (typeof cp === 'number' && !isNaN(cp) && pos.avgShort > 0) 
                         ? (pos.avgShort - cp) * pos.shortLots 
                         : null
                       const uPct = (typeof cp === 'number' && !isNaN(cp) && pos.avgShort > 0) 
                         ? ((pos.avgShort - cp) / pos.avgShort) * 100 
                         : null
+                      const uPnl = uPnlNative != null ? convertAmount(uPnlNative, pos.currency) : null
+                      const avgShortDisp = convertAmount(pos.avgShort, pos.currency)
+                      const cpDisp = typeof cp === 'number' && !isNaN(cp) ? convertAmount(cp, pos.currency) : null
                       return <tr key={t} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td className="py-3 px-3">
                           <button onClick={() => setTradeModal({
@@ -2238,10 +2248,10 @@ function switchToTab(tab: typeof activeTab) {
                           </button>
                         </td>
                         <td className="py-3 px-3 font-mono">{pos.shortLots}</td>
-                        <td className="py-3 px-3 font-mono">{sym}{pos.avgShort.toFixed(2)}</td>
-                        <td className="py-3 px-3 font-mono">{cp ? sym + cp.toFixed(2) : '—'}</td>
+                        <td className="py-3 px-3 font-mono">{pfSym}{avgShortDisp.toFixed(2)}</td>
+                        <td className="py-3 px-3 font-mono">{cpDisp != null ? pfSym + cpDisp.toFixed(2) : '—'}</td>
                         <td className={`py-3 px-3 font-mono font-medium ${uPnl != null ? (uPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
-                          {uPnl != null ? (uPnl >= 0 ? '+' : '-') + sym + Math.abs(uPnl).toFixed(2) : '—'}
+                          {uPnl != null ? (uPnl >= 0 ? '+' : '-') + pfSym + Math.abs(uPnl).toFixed(2) : '—'}
                         </td>
                         <td className={`py-3 px-3 font-mono ${uPct != null ? (uPct >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
                           {uPct != null ? (uPct >= 0 ? '+' : '-') + Math.abs(uPct).toFixed(2) + '%' : '—'}
@@ -2266,8 +2276,11 @@ function switchToTab(tab: typeof activeTab) {
                     </tr></thead>
                     <tbody>
                       {[...realized].sort((a, b) => b.date.localeCompare(a.date)).map(r => {
-                        const ep = r.type === 'long' ? r.buyPrice : r.sellPrice
-                        const xp = r.type === 'long' ? r.sellPrice : r.buyPrice
+                        const epNative = r.type === 'long' ? r.buyPrice : r.sellPrice
+                        const xpNative = r.type === 'long' ? r.sellPrice : r.buyPrice
+                        const ep = convertAmount(epNative, r.currency)
+                        const xp = convertAmount(xpNative, r.currency)
+                        const pnl = convertAmount(r.pnl, r.currency)
                         return <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td className="py-3 px-3 font-mono text-xs" style={{ color: 'var(--text2)' }}>{r.date}</td>
                           <td className="py-3 px-3">
@@ -2275,9 +2288,9 @@ function switchToTab(tab: typeof activeTab) {
                           </td>
                           <td className="py-3 px-3"><span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${r.type === 'long' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-blue-400/10 text-blue-400'}`}>{r.type.toUpperCase()}</span></td>
                           <td className="py-3 px-3 font-mono">{r.lots}</td>
-                          <td className="py-3 px-3 font-mono">{r.sym}{ep.toFixed(2)}</td>
-                          <td className="py-3 px-3 font-mono">{r.sym}{xp.toFixed(2)}</td>
-                          <td className={`py-3 px-3 font-mono font-medium ${r.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.pnl >= 0 ? '+' : ''}{r.sym}{Math.abs(r.pnl).toFixed(2)}</td>
+                          <td className="py-3 px-3 font-mono">{pfSym}{ep.toFixed(2)}</td>
+                          <td className="py-3 px-3 font-mono">{pfSym}{xp.toFixed(2)}</td>
+                          <td className={`py-3 px-3 font-mono font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{pfSym}{Math.abs(pnl).toFixed(2)}</td>
                           <td className={`py-3 px-3 font-mono ${r.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.pct >= 0 ? '+' : ''}{r.pct.toFixed(2)}%</td>
                           <td className="py-3 px-3">
                             <button onClick={() => revertTrade(r.id)}
