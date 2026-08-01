@@ -2113,79 +2113,83 @@ function switchToTab(tab: typeof activeTab) {
 
           {/* ── SON YORUM: Tarih başlıkları altında ── */}
           {tickerSort === 'recent' && (() => {
-            // Her hissenin son yorum tarihini bul
-            const latestDates: Record<string, string> = {}
-            for (const t of filtered) {
-              const latest = [...map[t]].sort((a, b) => b.date.localeCompare(a.date))[0]
-              const p = latest.prices || tickerPrices[t]
-            }
+  // Her hissenin son yorum tarihini bul
+  const latestDates: Record<string, string> = {}
+  for (const t of filtered) {
+    if (!map[t] || map[t].length === 0) continue
+    const latest = [...map[t]].sort((a, b) => b.date.localeCompare(a.date))[0]
+    if (latest) latestDates[t] = latest.date  // ← BU SATIR EKSİKTİ
+  }
 
-            // Benzersiz tarihleri en yeniden en eskiye sırala
-            const dates = [...new Set(Object.values(latestDates))].sort((a, b) => b.localeCompare(a))
+  // Benzersiz tarihleri en yeniden en eskiye sırala
+  const dates = [...new Set(Object.values(latestDates))].sort((a, b) => b.localeCompare(a))
 
-            return (
-              <div className="space-y-6">
-                {dates.map(date => {
-                  const tickersForDate = filtered
-                    .filter(t => latestDates[t] === date)
-                    .sort((a, b) => {
-                      // Aynı gün içinde son yorum saatine göre (varsa)
-                      const entA = map[a].find(e => e.date === date)
-                      const entB = map[b].find(e => e.date === date)
-                      if (entA?.time && entB?.time) return entB.time.localeCompare(entA.time)
-                      return a.localeCompare(b)
-                    })
+  if (dates.length === 0) {
+    return <div className="text-center py-12 font-mono text-sm" style={{ color: 'var(--text3)' }}>Henüz kayıt yok</div>
+  }
 
-                  return (
-                    <div key={date}>
-                      <div className="font-mono text-xs uppercase tracking-widest mb-3 px-1" style={{ color: 'var(--text3)' }}>
-                        {formatDateTR(new Date(date))}
-                      </div>
-                      <div className={tickerLayout === 'grid'
-                        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
-                        : 'flex flex-col gap-2'}>
-                        {tickersForDate.map(t => {
-                          const ents = map[t]
-                          const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
-                          const p = latest.prices
-                          const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
-                          const sym = currencySymbol(cur)
-                          return (
-                            <button key={t} onClick={() => setModalTicker(t)}
-                              className="rounded-xl p-4 text-left transition-all"
-                              style={{
-                                background: 'var(--surface)',
-                                border: '1px solid var(--border)',
-                                display: tickerLayout === 'list' ? 'flex' : 'block',
-                                alignItems: tickerLayout === 'list' ? 'center' : undefined,
-                                gap: tickerLayout === 'list' ? '16px' : undefined,
-                              }}>
-                              <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)', minWidth: tickerLayout === 'list' ? '80px' : undefined }}>{t}</div>
-                              <div className="font-mono text-sm" style={{ flex: tickerLayout === 'list' ? 1 : undefined }}>
-                                {p?.current ? (
-                                  <>
-                                    {sym}{p.current.toFixed(2)}
-                                    {p.change != null && (
-                                      <span className={`text-xs ml-2 ${p.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
-                                      </span>
-                                    )}
-                                  </>
-                                ) : <span style={{ color: 'var(--text3)', fontSize: '12px' }}>—</span>}
-                              </div>
-                              <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>
-                                {ents.length} yorum
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
+  return (
+    <div className="space-y-6">
+      {dates.map(date => {
+        const tickersForDate = filtered
+          .filter(t => latestDates[t] === date)
+          .sort((a, b) => {
+            const entA = map[a].find(e => e.date === date)
+            const entB = map[b].find(e => e.date === date)
+            if (entA?.time && entB?.time) return entB.time.localeCompare(entA.time)
+            return a.localeCompare(b)
+          })
+
+        return (
+          <div key={date}>
+            <div className="font-mono text-xs uppercase tracking-widest mb-3 px-1" style={{ color: 'var(--text3)' }}>
+              {formatDateTR(new Date(date))}
+            </div>
+            <div className={tickerLayout === 'grid'
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+              : 'flex flex-col gap-2'}>
+              {tickersForDate.map(t => {
+                const ents = map[t]
+                const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
+                const p = latest.prices || tickerPrices[t]  // ← tickerPrices eklendi
+                const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
+                const sym = currencySymbol(cur)
+                return (
+                  <button key={t} onClick={() => setModalTicker(t)}
+                    className="rounded-xl p-4 text-left transition-all"
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      display: tickerLayout === 'list' ? 'flex' : 'block',
+                      alignItems: tickerLayout === 'list' ? 'center' : undefined,
+                      gap: tickerLayout === 'list' ? '16px' : undefined,
+                    }}>
+                    <div className="font-mono text-lg font-medium tracking-widest" style={{ color: 'var(--accent)', minWidth: tickerLayout === 'list' ? '80px' : undefined }}>{t}</div>
+                    <div className="font-mono text-sm" style={{ flex: tickerLayout === 'list' ? 1 : undefined }}>
+                      {p?.current ? (
+                        <>
+                          {sym}{p.current.toFixed(2)}
+                          {p.change != null && (
+                            <span className={`text-xs ml-2 ${p.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
+                            </span>
+                          )}
+                        </>
+                      ) : <span style={{ color: 'var(--text3)', fontSize: '12px' }}>—</span>}
                     </div>
-                  )
-                })}
-              </div>
-            )
-          })()}
+                    <div className="font-mono text-[9px]" style={{ color: 'var(--text3)' }}>
+                      {ents.length} yorum
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+})()}
         </>
       )
     })()}
