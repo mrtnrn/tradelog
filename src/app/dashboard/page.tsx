@@ -1096,30 +1096,34 @@ export default function Dashboard() {
         if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
       }
     } else if (cs === 'buy-short') {
+  // SHORT KAPATMA (Alış yaparak short'u kapat)
+  const lots = Math.min(lot, pos.shortLots || 0)
+  if (lots > 0) {
+    const openPrice = pos.avgShort
+    const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
+    if (openPrice > 0 && closePrice != null) {
+      realized.push({
+        id: e.id, ticker: t, lots,
+        pnl: (openPrice - closePrice) * lots,
+        pct: ((openPrice - closePrice) / openPrice) * 100,
+        type: 'short', currency: pos.currency,
+        sym: currencySymbol(pos.currency),
+        buyPrice: openPrice, sellPrice: closePrice, date: e.date
+      })
+    }
+    pos.shortLots = Math.max(0, pos.shortLots - lots)
+    pos.totalShortCost = pos.shortLots * pos.avgShort
+    if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
+  }
+    } else if (cs === 'sell-short') {
+      // SHORT AÇMA (Satış yaparak short'a gir)
       const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
-      if (lotCount > 0 && e.buyPrice != null && e.buyPrice > 0) {
-        pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.buyPrice
+      if (lotCount > 0 && e.sellPrice != null && e.sellPrice > 0) {
+        pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.sellPrice
         pos.shortLots += lotCount
         pos.avgShort = pos.totalShortCost / pos.shortLots
-      } else if (lotCount > 0) pos.shortLots += lotCount
-    } else if (cs === 'sell-short') {
-      const lots = Math.min(lot, pos.shortLots || 0)
-      if (lots > 0) {
-        const openPrice = pos.avgShort
-        const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
-        if (openPrice > 0 && closePrice != null) {
-          realized.push({
-            id: e.id, ticker: t, lots,
-            pnl: (openPrice - closePrice) * lots,
-            pct: ((openPrice - closePrice) / openPrice) * 100,
-            type: 'short', currency: pos.currency,
-            sym: currencySymbol(pos.currency),
-            buyPrice: openPrice, sellPrice: closePrice, date: e.date
-          })
-        }
-        pos.shortLots = Math.max(0, pos.shortLots - lots)
-        pos.totalShortCost = pos.shortLots * pos.avgShort
-        if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
+      } else if (lotCount > 0) {
+        pos.shortLots += lotCount
       }
     }
   }
