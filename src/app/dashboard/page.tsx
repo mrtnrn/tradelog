@@ -1162,6 +1162,29 @@ useEffect(() => {
   )
 }, [activeTab, allEntries])
 
+//Günlük Kayıtlarda Fiyat Tekrar Çek
+
+useEffect(() => {
+  if (activeTab !== 'daily') return
+  const missingPrices = entries.filter(e => !e.prices).map(e => e.ticker)
+  if (missingPrices.length === 0) return
+  
+  Promise.all(
+    [...new Set(missingPrices)].map(async (t) => {
+      const pd = await fetchPrice(t)
+      if (pd) {
+        setAllEntries(prev => {
+          const u = { ...prev }
+          if (u[key]) {
+            u[key] = u[key].map(e => e.ticker === t && !e.prices ? { ...e, prices: pd } : e)
+          }
+          return u
+        })
+      }
+    })
+  )
+}, [entries, key, activeTab])
+
   // Hisse Takip fiyatlarını çek
 useEffect(() => {
   if (activeTab !== 'tickers') return
@@ -1674,33 +1697,57 @@ function switchToTab(tab: typeof activeTab) {
     onSubmit={async (sellPrice, lots, tradeDate, buyPrice) => {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return
-  const isShort = tradeModal!.type === 'short'
-  const cs: CS = isShort ? 'sell-short' : 'sell-long'
-  const entry: Entry = {
-    id: Date.now(),
-    ticker: tradeModal!.ticker,
-    comment: isShort
-      ? `Short kapatma — ${lots} lot @ ${tradeModal!.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`
-      : `Portföy satışı — ${lots} lot @ ${tradeModal!.currency === 'TRY' ? '₺' : '$'}${sellPrice.toFixed(2)}`,
-    status: isShort ? 'buy' : 'sell',
-    direction: isShort ? 'short' : 'long',
-    cs,
+
+  const isShortClose = tradeModal.type === 'short'
+
+  const entry: Partial<Entry> = {
+    id: generateId(),
+    ticker: tradeModal.ticker,
+    comment: isShortClose
+      ? `Short kapatma — ${lots} lot @ ${currencySymbol(tradeModal.currency)}${buyPrice}`
+      : `Portföy satışı — ${lots} lot @ ${currencySymbol(tradeModal.currency)}${sellPrice}`,
+    status: isShortClose ? 'buy' : 'sell',
+    direction: isShortClose ? 'short' : 'long',
+    cs: isShortClose ? 'buy-short' : 'sell-long',
     lot: lots,
-    buyPrice: isShort ? sellPrice : buyPrice,
-    sellPrice: isShort ? buyPrice : sellPrice,
+    buyPrice,
+    sellPrice,
     time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-    prices: null
+    prices: null,
   }
+
   const updated = { ...allEntries }
   if (!updated[tradeDate]) updated[tradeDate] = []
-  updated[tradeDate] = [...updated[tradeDate], entry]
+  updated[tradeDate] = [...updated[tradeDate], entry as Entry]
   setAllEntries(updated)
+
   await supabase.from('trade_entries').insert({
-    id: entry.id, date: tradeDate, ticker: entry.ticker, comment: entry.comment,
-    status: entry.status, direction: entry.direction, cs: entry.cs,
-    lot: lots, buy_price: entry.buyPrice, sell_price: entry.sellPrice,
-    time: entry.time, prices: null, user_id: session.user.id
+    id: entry.id,
+    date: tradeDate,
+    ticker: entry.ticker,
+    comment: entry.comment,
+    status: entry.status,
+    direction: entry.direction,
+    cs: entry.cs,
+    lot: entry.lot,
+    buy_price: entry.buyPrice,
+    sell_price: entry.sellPrice,
+    time: entry.time,
+    prices: null,
+    user_id: session.user.id,
   })
+
+  const pd = await fetchPrice(entry.ticker)
+  if (pd) {
+    setAllEntries((prev) => {
+      const u = { ...prev }
+      if (u[tradeDate]) u[tradeDate] = u[tradeDate].map((e) => (e.id === entry.id ? { ...e, prices: pd } : e))
+      return u
+    })
+    setPortfolioPrices((prev) => ({ ...prev, [entry.ticker]: pd }))
+    await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
+  }
+
   setTradeModal(null)
 }}
   />
