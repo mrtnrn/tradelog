@@ -1044,7 +1044,7 @@ export default function Dashboard() {
     onConfirm: () => void
   } | null>(null)
 
-  const portfolioData = useMemo(() => {
+const portfolioData = useMemo(() => {
   const allFlat: (Entry & { date: string })[] = []
   for (const [date, ents] of Object.entries(allEntries)) {
     for (const e of ents) allFlat.push({ ...e, date })
@@ -1096,25 +1096,25 @@ export default function Dashboard() {
         if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
       }
     } else if (cs === 'buy-short') {
-  // SHORT KAPATMA (Alış yaparak short'u kapat)
-  const lots = Math.min(lot, pos.shortLots || 0)
-  if (lots > 0) {
-    const openPrice = pos.avgShort
-    const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
-    if (openPrice > 0 && closePrice != null) {
-      realized.push({
-        id: e.id, ticker: t, lots,
-        pnl: (openPrice - closePrice) * lots,
-        pct: ((openPrice - closePrice) / openPrice) * 100,
-        type: 'short', currency: pos.currency,
-        sym: currencySymbol(pos.currency),
-        buyPrice: openPrice, sellPrice: closePrice, date: e.date
-      })
-    }
-    pos.shortLots = Math.max(0, pos.shortLots - lots)
-    pos.totalShortCost = pos.shortLots * pos.avgShort
-    if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
-  }
+      // SHORT KAPATMA (Alış yaparak short'u kapat)
+      const lots = Math.min(lot, pos.shortLots || 0)
+      if (lots > 0) {
+        const openPrice = pos.avgShort
+        const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
+        if (openPrice > 0 && closePrice != null) {
+          realized.push({
+            id: e.id, ticker: t, lots,
+            pnl: (openPrice - closePrice) * lots,
+            pct: ((openPrice - closePrice) / openPrice) * 100,
+            type: 'short', currency: pos.currency,
+            sym: currencySymbol(pos.currency),
+            buyPrice: openPrice, sellPrice: closePrice, date: e.date
+          })
+        }
+        pos.shortLots = Math.max(0, pos.shortLots - lots)
+        pos.totalShortCost = pos.shortLots * pos.avgShort
+        if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
+      }
     } else if (cs === 'sell-short') {
       // SHORT AÇMA (Satış yaparak short'a gir)
       const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
@@ -1143,6 +1143,24 @@ export default function Dashboard() {
       fetchUSDTRY()
     })
   }, [supabase, router])
+
+// Portföy fiyatlarını çek
+useEffect(() => {
+  if (activeTab !== 'portfolio') return
+  const tickers = new Set<string>()
+  for (const ents of Object.values(allEntries)) {
+    for (const e of ents) {
+      if (e.status === 'buy' || e.status === 'sell') tickers.add(e.ticker.trim())
+    }
+  }
+  Promise.all(
+    [...tickers].map(async (t) => {
+      if (portfolioPrices[t]) return
+      const pd = await fetchPrice(t)
+      if (pd) setPortfolioPrices((prev) => ({ ...prev, [t]: pd }))
+    })
+  )
+}, [activeTab, allEntries])
 
   // Hisse Takip fiyatlarını çek
 useEffect(() => {
@@ -1330,15 +1348,17 @@ useEffect(() => {
     })
     setSyncing(false)
 
-    const pd = await fetchPrice(entry.ticker)
-    if (pd) {
-      setAllEntries((prev) => {
-        const u = { ...prev }
-        if (u[key]) u[key] = u[key].map((e) => (e.id === entry.id ? { ...e, prices: pd } : e))
-        return u
-      })
-      await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
-    }
+   const pd = await fetchPrice(entry.ticker)
+if (pd) {
+  setAllEntries((prev) => {
+    const u = { ...prev }
+    if (u[key]) u[key] = u[key].map((e) => (e.id === entry.id ? { ...e, prices: pd } : e))
+    return u
+  })
+  // ← BUNU EKLE
+  setPortfolioPrices((prev) => ({ ...prev, [entry.ticker]: pd }))
+  await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
+}
   }
 
   // ── DELETE ENTRY ──────────────────────────────────────
