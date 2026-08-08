@@ -1162,29 +1162,6 @@ useEffect(() => {
   )
 }, [activeTab, allEntries])
 
-//Günlük Kayıtlarda Fiyat Tekrar Çek
-
-useEffect(() => {
-  if (activeTab !== 'daily') return
-  const missingPrices = entries.filter(e => !e.prices).map(e => e.ticker)
-  if (missingPrices.length === 0) return
-  
-  Promise.all(
-    [...new Set(missingPrices)].map(async (t) => {
-      const pd = await fetchPrice(t)
-      if (pd) {
-        setAllEntries(prev => {
-          const u = { ...prev }
-          if (u[key]) {
-            u[key] = u[key].map(e => e.ticker === t && !e.prices ? { ...e, prices: pd } : e)
-          }
-          return u
-        })
-      }
-    })
-  )
-}, [entries, key, activeTab])
-
   // Hisse Takip fiyatlarını çek
 useEffect(() => {
   if (activeTab !== 'tickers') return
@@ -1293,6 +1270,28 @@ useEffect(() => {
 
   const key = dateKey(currentDate)
   const entries = allEntries[key] || []
+
+  // Günlük kayıtlarda eksik fiyatları çek
+useEffect(() => {
+  if (activeTab !== 'daily') return
+  const missingPrices = entries.filter(e => !e.prices).map(e => e.ticker)
+  if (missingPrices.length === 0) return
+  
+  Promise.all(
+    [...new Set(missingPrices)].map(async (t) => {
+      const pd = await fetchPrice(t)
+      if (pd) {
+        setAllEntries(prev => {
+          const u = { ...prev }
+          if (u[key]) {
+            u[key] = u[key].map(e => e.ticker === t && !e.prices ? { ...e, prices: pd } : e)
+          }
+          return u
+        })
+      }
+    })
+  )
+}, [entries, key, activeTab])
 
   // ── GET ALL TICKER ENTRIES ────────────────────────────
   function getAllEntriesForTicker(t: string): EntryWithDate[] {
@@ -1737,14 +1736,14 @@ function switchToTab(tab: typeof activeTab) {
     user_id: session.user.id,
   })
 
-  const pd = await fetchPrice(entry.ticker)
+  const pd = await fetchPrice(entry.ticker!)
   if (pd) {
     setAllEntries((prev) => {
       const u = { ...prev }
       if (u[tradeDate]) u[tradeDate] = u[tradeDate].map((e) => (e.id === entry.id ? { ...e, prices: pd } : e))
       return u
     })
-    setPortfolioPrices((prev) => ({ ...prev, [entry.ticker]: pd }))
+    setPortfolioPrices((prev) => ({ ...prev, [entry.ticker!]: pd }))
     await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
   }
 
