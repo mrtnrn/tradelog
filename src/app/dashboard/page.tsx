@@ -1643,15 +1643,14 @@ function switchToTab(tab: typeof activeTab) {
   // sell + short = short pozisyon AÇ
   const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
   if (lotCount > 0) {
-    if (e.buyPrice != null && e.buyPrice > 0) {
-      pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.buyPrice
+    if (e.sellPrice != null && e.sellPrice > 0) {
+      pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.sellPrice
       pos.shortLots += lotCount
       pos.avgShort = pos.totalShortCost / pos.shortLots
     } else {
       pos.shortLots += lotCount
     }
   }
-
     } else if (cs === 'buy-short') {
       // Short pozisyon KAPAT — geri alış
       const lots = Math.min(lot, pos.shortLots || 0)
@@ -1699,18 +1698,20 @@ function switchToTab(tab: typeof activeTab) {
 
   const isShortClose = tradeModal.type === 'short'
 
+  const entryId = generateId()  // ← entryId'yi önce tanımla
+
   const entry: Partial<Entry> = {
-    id: generateId(),
+    id: entryId,
     ticker: tradeModal.ticker,
     comment: isShortClose
-      ? `Short kapatma — ${lots} lot @ ${currencySymbol(tradeModal.currency)}${buyPrice}`
+      ? `Short kapatma — ${lots} lot @ ${currencySymbol(tradeModal.currency)}${sellPrice}`
       : `Portföy satışı — ${lots} lot @ ${currencySymbol(tradeModal.currency)}${sellPrice}`,
     status: isShortClose ? 'buy' : 'sell',
     direction: isShortClose ? 'short' : 'long',
     cs: isShortClose ? 'buy-short' : 'sell-long',
     lot: lots,
-    buyPrice,
-    sellPrice,
+    buyPrice: isShortClose ? sellPrice : buyPrice,   // ← short kapatmada buyPrice = kapatma fiyatı
+    sellPrice: isShortClose ? buyPrice : sellPrice,  // ← short kapatmada sellPrice = giriş fiyatı
     time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
     prices: null,
   }
@@ -1736,17 +1737,16 @@ function switchToTab(tab: typeof activeTab) {
     user_id: session.user.id,
   })
 
-  const pd = await fetchPrice(entry.ticker!)
-  if (pd) {
-    setAllEntries((prev) => {
-      const u = { ...prev }
-      if (u[tradeDate]) u[tradeDate] = u[tradeDate].map((e) => (e.id === entry.id ? { ...e, prices: pd } : e))
-      return u
-    })
-    setPortfolioPrices((prev) => ({ ...prev, [entry.ticker!]: pd }))
-    await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id)
-  }
-
+ const pd = await fetchPrice(entry.ticker!)
+if (pd) {
+  setAllEntries((prev) => {
+    const u = { ...prev }
+    if (u[tradeDate]) u[tradeDate] = u[tradeDate].map((e) => (e.id === entry.id! ? { ...e, prices: pd } : e))  // ← ! ekle
+    return u
+  })
+  setPortfolioPrices((prev) => ({ ...prev, [entry.ticker!]: pd }))
+  await supabase.from('trade_entries').update({ prices: pd }).eq('id', entry.id!)  // ← ! ekle
+}
   setTradeModal(null)
 }}
   />
@@ -2029,7 +2029,7 @@ function switchToTab(tab: typeof activeTab) {
                       </div>
                     )}
                     <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text2)' }}>{e.comment}</p>
-                    {e.prices && e.cs !== 'sell-long' && e.cs !== 'sell-short' && e.cs !== 'buy-short' ? (
+                    {e.prices ? (
                       <div className="flex gap-4 flex-wrap">
                         <div>
                           <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text3)' }}>Güncel</div>
