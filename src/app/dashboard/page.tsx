@@ -1096,24 +1096,35 @@ const portfolioData = useMemo(() => {
         if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
       }
     } else if (cs === 'buy-short') {
-      // SHORT KAPATMA (Alış yaparak short'u kapat)
-      const lots = Math.min(lot, pos.shortLots || 0)
-      if (lots > 0) {
-        const openPrice = pos.avgShort
-        const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
-        if (openPrice > 0 && closePrice != null) {
-          realized.push({
-            id: e.id, ticker: t, lots,
-            pnl: (openPrice - closePrice) * lots,
-            pct: ((openPrice - closePrice) / openPrice) * 100,
-            type: 'short', currency: pos.currency,
-            sym: currencySymbol(pos.currency),
-            buyPrice: openPrice, sellPrice: closePrice, date: e.date
-          })
+      if (pos.shortLots > 0) {
+        // Mevcut short pozisyonu KAPAT
+        const lots = Math.min(lot, pos.shortLots)
+        if (lots > 0) {
+          const openPrice = pos.avgShort
+          const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
+          if (openPrice > 0 && closePrice != null) {
+            realized.push({
+              id: e.id, ticker: t, lots,
+              pnl: (openPrice - closePrice) * lots,
+              pct: ((openPrice - closePrice) / openPrice) * 100,
+              type: 'short', currency: pos.currency,
+              sym: currencySymbol(pos.currency),
+              buyPrice: openPrice, sellPrice: closePrice, date: e.date
+            })
+          }
+          pos.shortLots = Math.max(0, pos.shortLots - lots)
+          pos.totalShortCost = pos.shortLots * pos.avgShort
+          if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
         }
-        pos.shortLots = Math.max(0, pos.shortLots - lots)
-        pos.totalShortCost = pos.shortLots * pos.avgShort
-        if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
+      } else if (lot > 0) {
+        // Açık short yoksa: bu kaydı YENİ short açılışı olarak say
+        if (e.buyPrice != null && e.buyPrice > 0) {
+          pos.totalShortCost = (pos.totalShortCost || 0) + lot * e.buyPrice
+          pos.shortLots += lot
+          pos.avgShort = pos.totalShortCost / pos.shortLots
+        } else {
+          pos.shortLots += lot
+        }
       }
     } else if (cs === 'sell-short') {
       // SHORT AÇMA (Satış yaparak short'a gir)
