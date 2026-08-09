@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
@@ -164,10 +164,9 @@ function StockModal(props: {
   entries: (Entry & { date: string })[]
   onClose: () => void
   onAddEntry: (entry: Partial<Entry>, date: string) => Promise<void>
-  user: any
   onEditEntry: (entry: Entry, date: string) => void
 }) {
-  const { ticker, entries, onClose, onAddEntry, user, onEditEntry } = props
+  const { ticker, entries, onClose, onAddEntry, onEditEntry } = props
   const [currentPrice, setCurrentPrice] = useState<PriceData | null>(null)
   const [activeSection, setActiveSection] = useState<'notes' | 'trade'>('notes')
 
@@ -330,11 +329,21 @@ function StockModal(props: {
                           </span>
                         )}
                       </div>
-                      <span
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}
-                      >
-                        {SL[e.cs]}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${csBadgeClass(e.cs)}`}
+                        >
+                          {SL[e.cs]}
+                        </span>
+                        <button
+                          onClick={() => onEditEntry(e, e.date)}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-xs"
+                          style={{ border: '1px solid var(--border2)', color: 'var(--text3)' }}
+                          title="Düzenle"
+                        >
+                          ✎
+                        </button>
+                      </div>
                     </div>
                     {e.lot ? (
                       <div
@@ -532,9 +541,6 @@ function StockModal(props: {
     </div>
   )
 }
-
-// Ensure file ends with a closing brace
-
 
 // ── TRADE MODAL (Portföy satış) ─────────────────────────
 function TradeModal({
@@ -1051,8 +1057,8 @@ const portfolioData = useMemo(() => {
   }
   allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
 
-  const positions: Record<string, any> = {}
-  const realized: any[] = []
+  const positions: Record<string, PositionData> = {}
+  const realized: RealizedTrade[] = []
 
   for (const e of allFlat) {
     const t = e.ticker.trim()
@@ -1578,115 +1584,7 @@ async function signOut() {
 ] as const
 function switchToTab(tab: typeof activeTab) {
   setActiveTab(tab)
-  if (tab === 'portfolio') {
-    const tickers = new Set<string>()
-    for (const ents of Object.values(allEntries)) {
-      for (const e of ents) {
-        if (e.status === 'buy' || e.status === 'sell') tickers.add(e.ticker.trim())
-      }
-    }
-    Promise.all([...tickers].map(async t => {
-      const pd = await fetchPrice(t)
-      if (pd) setPortfolioPrices(prev => ({ ...prev, [t]: pd }))
-    }))
-  }
 }
-  function buildPortfolio() {
-  const allFlat: (Entry & { date: string })[] = []
-  for (const [date, ents] of Object.entries(allEntries)) {
-    for (const e of ents) allFlat.push({ ...e, date })
-  }
-  allFlat.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
-
-  const positions: Record<string, any> = {}
-  const realized: any[] = []
-
-  for (const e of allFlat) {
-    const t = e.ticker.trim()
-    const cur = e.prices?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
-
-    if (!positions[t]) {
-      positions[t] = {
-        longLots: 0, avgBuy: 0, totalCost: 0,
-        shortLots: 0, avgShort: 0, totalShortCost: 0,
-        currency: cur, prices: e.prices
-      }
-    }
-    const pos = positions[t]
-    if (e.prices) { pos.prices = e.prices; pos.currency = e.prices.currency }
-
-    const cs = e.cs || (e.status === 'watch' ? 'watch' : `${e.status}-${e.direction || 'long'}`)
-    const lot = e.lot != null && e.lot > 0 ? e.lot : 0
-
-    if (cs === 'buy-long') {
-      // Long pozisyon AÇ
-      if (lot > 0) {
-        if (e.buyPrice != null && e.buyPrice > 0) {
-          pos.totalCost += lot * e.buyPrice
-          pos.longLots += lot
-          pos.avgBuy = pos.totalCost / pos.longLots
-        } else {
-          pos.longLots += lot
-        }
-      }
-
-    } else if (cs === 'sell-long') {
-      // Long pozisyon KAPAT
-      const lots = Math.min(lot, pos.longLots || 0)
-      if (lots > 0) {
-        const cost = (e.buyPrice != null && e.buyPrice > 0) ? e.buyPrice : pos.avgBuy
-        if (cost > 0 && e.sellPrice != null && e.sellPrice > 0) {
-          realized.push({
-            id: e.id, ticker: t, lots,
-            pnl: (e.sellPrice - cost) * lots,
-            pct: (e.sellPrice - cost) / cost * 100,
-            type: 'long', currency: pos.currency,
-            sym: currencySymbol(pos.currency),
-            buyPrice: cost, sellPrice: e.sellPrice, date: e.date
-          })
-        }
-        pos.longLots = Math.max(0, pos.longLots - lots)
-        pos.totalCost = pos.longLots * pos.avgBuy
-        if (pos.longLots === 0) { pos.avgBuy = 0; pos.totalCost = 0 }
-      }
-
-  } else if (cs === 'sell-short') {
-  // sell + short = short pozisyon AÇ
-  const lotCount = e.lot != null && e.lot > 0 ? e.lot : 0
-  if (lotCount > 0) {
-    if (e.sellPrice != null && e.sellPrice > 0) {
-      pos.totalShortCost = (pos.totalShortCost || 0) + lotCount * e.sellPrice
-      pos.shortLots += lotCount
-      pos.avgShort = pos.totalShortCost / pos.shortLots
-    } else {
-      pos.shortLots += lotCount
-    }
-  }
-    } else if (cs === 'buy-short') {
-      // Short pozisyon KAPAT — geri alış
-      const lots = Math.min(lot, pos.shortLots || 0)
-      if (lots > 0) {
-        const openPrice = pos.avgShort
-        const closePrice = e.buyPrice != null && e.buyPrice > 0 ? e.buyPrice : null
-        if (closePrice != null) {
-          // Short K/Z: açılış - kapanış (düşerse kar)
-          realized.push({
-            id: e.id, ticker: t, lots,
-            pnl: (openPrice - closePrice) * lots,
-            pct: (openPrice - closePrice) / openPrice * 100,
-            type: 'short', currency: pos.currency,
-            sym: currencySymbol(pos.currency),
-            buyPrice: openPrice, sellPrice: closePrice, date: e.date
-          })
-        }
-        pos.shortLots = Math.max(0, pos.shortLots - lots)
-        pos.totalShortCost = pos.shortLots * pos.avgShort
-        if (pos.shortLots === 0) { pos.avgShort = 0; pos.totalShortCost = 0 }
-      }
-    }
-
-  return { positions, realized }
-}}
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
@@ -1696,7 +1594,6 @@ function switchToTab(tab: typeof activeTab) {
         backgroundSize: '40px 40px'
       }} />
 
-      {/* Stock Modal */}
       {/* Trade Modal */}
 {tradeModal && (
   <TradeModal
@@ -1800,7 +1697,6 @@ if (pd) {
             ticker={modalTicker}
             entries={getAllEntriesForTicker(modalTicker)}
             onClose={() => setModalTicker(null)}
-            user={user}
             onAddEntry={async (entry, date) => {
               const { data: { session } } = await supabase.auth.getSession()
               if (!session) return
@@ -1816,10 +1712,10 @@ if (pd) {
                 time: fullEntry.time, prices: fullEntry.prices, user_id: session.user.id
               })
             }}
-            onEditEntry={(entry, date) => {        // ← BUNU EKLE
+            onEditEntry={(entry, date) => {
               setEditingEntry(entry)
               setEditDate(date)
-            }}                                   // ← BUNU EKLE
+            }}
           />
         )}
 
@@ -2199,7 +2095,7 @@ if (pd) {
   for (const t of filtered) {
     if (!map[t] || map[t].length === 0) continue
     const latest = [...map[t]].sort((a, b) => b.date.localeCompare(a.date))[0]
-    if (latest) latestDates[t] = latest.date  // ← BU SATIR EKSİKTİ
+    if (latest) latestDates[t] = latest.date
   }
 
   // Benzersiz tarihleri en yeniden en eskiye sırala
@@ -2232,7 +2128,7 @@ if (pd) {
               {tickersForDate.map(t => {
                 const ents = map[t]
                 const latest = [...ents].sort((a, b) => b.date.localeCompare(a.date))[0]
-                const p = latest.prices || tickerPrices[t]  // ← tickerPrices eklendi
+                const p = latest.prices || tickerPrices[t]
                 const cur = p?.currency || (t.endsWith('.IS') ? 'TRY' : 'USD')
                 const sym = currencySymbol(cur)
                 return (
@@ -2279,9 +2175,6 @@ if (pd) {
 
         {/* ── PORTFOLIO TAB ── */}
         {activeTab === 'portfolio' && (() => {
-          console.log('usdTryRate:', usdTryRate)
-          console.log('portfolioPrices:', portfolioPrices)
-          console.log('pfCurrency:', pfCurrency)
           const { positions, realized } = portfolioData
           const openLong = Object.entries(positions).filter(([, p]) => p.longLots > 0)
           const openShort = Object.entries(positions).filter(([, p]) => p.shortLots > 0)
@@ -2615,4 +2508,4 @@ if (pd) {
       )}
     </div>
   )
-}   
+}
