@@ -85,9 +85,9 @@ interface UserData {
 // ── CONSTANTS ───────────────────────────────────────────
 const SL: Record<CS, string> = {
   'watch': 'TAKİP',
-  'buy-long': 'LONG ALIM',
-  'buy-short': 'SHORT AÇIŞ',
-  'sell-long': 'LONG SATIŞ',
+  'buy-long': 'LONG AÇ',
+  'buy-short': 'SHORT AÇ',
+  'sell-long': 'LONG KAPAT',
   'sell-short': 'SHORT KAPAT',
 }
 
