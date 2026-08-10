@@ -86,9 +86,9 @@ interface UserData {
 const SL: Record<CS, string> = {
   'watch': 'TAKİP',
   'buy-long': 'LONG ALIM',
-  'buy-short': 'SHORT KAPAT',
+  'buy-short': 'SHORT AÇIŞ',
   'sell-long': 'LONG SATIŞ',
-  'sell-short': 'SHORT AÇIŞ',
+  'sell-short': 'SHORT KAPAT',
 }
 
 const CACHE_TTL = 10 * 60 * 1000
